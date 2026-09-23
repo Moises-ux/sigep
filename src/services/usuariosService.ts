@@ -5,6 +5,7 @@ import {
   getDocs, 
   setDoc, 
   updateDoc, 
+  deleteDoc,
   query, 
   orderBy, 
   serverTimestamp 
@@ -47,4 +48,9 @@ export const salvarPerfilUsuario = async (
       ...dados,
     });
   }
+};
+
+export const deletarUsuario = async (id: string): Promise<void> => {
+  const docRef = doc(db, USUARIOS_COLLECTION, id);
+  await deleteDoc(docRef);
 };

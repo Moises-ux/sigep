@@ -1,11 +1,22 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { Wrench, Lock, Mail, AlertCircle, Loader2, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import {
+  AlertCircle,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+  Mail,
+  ShieldCheck,
+  Wrench,
+} from "lucide-react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -20,15 +31,19 @@ export const LoginPage: React.FC = () => {
 
     try {
       await signIn(email.trim(), password);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (err: any) {
-      console.error('Erro de autenticação:', err);
+      console.error("Erro de autenticação:", err);
       if (err.message) {
         setError(err.message);
-      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        setError('E-mail ou senha incorretos.');
+      } else if (
+        err.code === "auth/invalid-credential" ||
+        err.code === "auth/user-not-found" ||
+        err.code === "auth/wrong-password"
+      ) {
+        setError("E-mail ou senha incorretos.");
       } else {
-        setError('Falha ao autenticar. Tente novamente mais tarde.');
+        setError("Falha ao autenticar. Tente novamente mais tarde.");
       }
     } finally {
       setSubmitting(false);
@@ -48,12 +63,16 @@ export const LoginPage: React.FC = () => {
             <Wrench className="w-7 h-7" />
           </div>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-white tracking-wider font-mono">SIGEP-TI</h1>
-            <span className="text-[10px] font-mono font-medium px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md">
-              Enterprise v2.0
-            </span>
+            <h1 className="text-lg font-bold text-white tracking-wider font-mono">
+              SIGEP-TI
+            </h1>
+            {/* <span className="text-[10px] font-mono font-medium px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md">
+              Enterprise v1.0
+            </span> */}
           </div>
-          <p className="text-xs text-slate-400 font-medium">Prefeitura Municipal • Gestão de Assistência Externa</p>
+          <p className="text-xs text-slate-400 font-medium">
+            Prefeitura Municipal de Uruçuí
+          </p>
         </div>
 
         {/* Alerta de Erro */}
@@ -142,7 +161,7 @@ export const LoginPage: React.FC = () => {
         <div className="pt-4 border-t border-slate-800/80 text-center space-y-1">
           <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
             <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-            <span>Controle de Acesso Restrito (RBAC)</span>
+            <span>Controle de Acesso Restrito</span>
           </div>
           <p className="text-[10px] text-slate-400">
             Cadastros são efetuados exclusivamente pelo Administrador de TI.

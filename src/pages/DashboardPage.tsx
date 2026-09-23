@@ -57,6 +57,7 @@ export const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const [statusFiltro, setStatusFiltro] = useState<string>("TODOS");
+  const [setorFiltro, setSetorFiltro] = useState<string>("TODOS");
   const [searchTerm, setSearchTerm] = useState("");
 
   const [osSelecionada, setOsSelecionada] = useState<OrdemServico | null>(null);
@@ -151,15 +152,19 @@ export const DashboardPage: React.FC = () => {
     return s ? `${s.sigla} - ${s.nome}` : "Setor não identificado";
   };
 
-  const totalOS = ordens.length;
-  const criadasOS = ordens.filter((o) => o.status === "CRIADA").length;
-  const assistenciaOS = ordens.filter(
+  const ordensPorSetor = ordens.filter((o) => {
+    return setorFiltro === "TODOS" || o.equipamento.setor_id === setorFiltro;
+  });
+
+  const totalOS = ordensPorSetor.length;
+  const criadasOS = ordensPorSetor.filter((o) => o.status === "CRIADA").length;
+  const assistenciaOS = ordensPorSetor.filter(
     (o) => o.status === "EM_ASSISTENCIA"
   ).length;
-  const retornadasOS = ordens.filter((o) => o.status === "RETORNADA").length;
-  const concluidasOS = ordens.filter((o) => o.status === "CONCLUIDA").length;
+  const retornadasOS = ordensPorSetor.filter((o) => o.status === "RETORNADA").length;
+  const concluidasOS = ordensPorSetor.filter((o) => o.status === "CONCLUIDA").length;
 
-  const ordensFiltradas = ordens.filter((o) => {
+  const ordensFiltradas = ordensPorSetor.filter((o) => {
     const atendeStatus = statusFiltro === "TODOS" || o.status === statusFiltro;
     const atendeBusca =
       o.numero_os.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -167,6 +172,12 @@ export const DashboardPage: React.FC = () => {
       o.equipamento.patrimonio.toLowerCase().includes(searchTerm.toLowerCase());
     return atendeStatus && atendeBusca;
   });
+
+  const limparFiltros = () => {
+    setStatusFiltro("TODOS");
+    setSetorFiltro("TODOS");
+    setSearchTerm("");
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -267,19 +278,42 @@ export const DashboardPage: React.FC = () => {
 
       {/* Controles de Filtros e Pesquisa em Shadcn Card */}
       <Card>
-        <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="relative flex-1 w-full max-w-md">
-            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" />
-            <Input
-              type="text"
-              placeholder="Pesquisar por protocolo OS, patrimônio ou defeito..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 text-xs font-mono"
-            />
+        <CardContent className="p-4 flex flex-col lg:flex-row gap-4 items-center justify-between flex-wrap">
+          <div className="flex flex-col sm:flex-row items-center gap-3 flex-1 w-full">
+            {/* Campo de Pesquisa */}
+            <div className="relative flex-1 w-full">
+              <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" />
+              <Input
+                type="text"
+                placeholder="Pesquisar por protocolo OS, patrimônio ou defeito..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 text-xs font-mono"
+              />
+            </div>
+
+            {/* Filtro por Setor (Visível apenas para perfis de TI / Admin) */}
+            {usuarioData?.papel !== "solicitante" && (
+              <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                <select
+                  value={setorFiltro}
+                  onChange={(e) => setSetorFiltro(e.target.value)}
+                  className="w-full sm:w-auto h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground font-medium cursor-pointer"
+                >
+                  <option value="TODOS">Todos os Setores</option>
+                  {setores.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.sigla} - {s.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+          {/* Botões de Filtro por Status */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0">
             {[
               { id: "TODOS", label: "Todos", count: totalOS },
               { id: "CRIADA", label: "Criadas", count: criadasOS },
@@ -292,7 +326,7 @@ export const DashboardPage: React.FC = () => {
                 variant={statusFiltro === st.id ? "default" : "outline"}
                 size="sm"
                 onClick={() => setStatusFiltro(st.id)}
-                className="gap-1.5 text-xs h-8"
+                className="gap-1.5 text-xs h-8 shrink-0"
               >
                 <span>{st.label}</span>
                 <Badge
@@ -320,11 +354,11 @@ export const DashboardPage: React.FC = () => {
               Nenhuma Ordem de Serviço Encontrada
             </h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-              Não há registros com os filtros aplicados. Altere o termo de pesquisa ou selecione outro status.
+              Não há registros com os filtros aplicados. Altere o termo de pesquisa ou selecione outro setor / status.
             </p>
           </div>
-          {statusFiltro !== "TODOS" && (
-            <Button variant="link" size="sm" onClick={() => setStatusFiltro("TODOS")}>
+          {(statusFiltro !== "TODOS" || setorFiltro !== "TODOS" || searchTerm !== "") && (
+            <Button variant="link" size="sm" onClick={limparFiltros}>
               Limpar Filtros
             </Button>
           )}
@@ -344,7 +378,7 @@ export const DashboardPage: React.FC = () => {
                   <TableHead className="w-[120px]">Protocolo</TableHead>
                   <TableHead className="w-[160px]">Status</TableHead>
                   <TableHead>Equipamento & Defeito</TableHead>
-                  <TableHead className="w-[180px]">Patrimônio / Setor</TableHead>
+                  <TableHead className="min-w-[220px]">Patrimônio / Setor</TableHead>
                   <TableHead className="text-right w-[140px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -376,11 +410,11 @@ export const DashboardPage: React.FC = () => {
                     </TableCell>
 
                     <TableCell>
-                      <div className="text-xs font-mono space-y-0.5">
-                        <div className="text-muted-foreground">
+                      <div className="text-xs space-y-1">
+                        <div className="text-muted-foreground font-mono">
                           Pat: <strong className="text-foreground">{os.equipamento.patrimonio}</strong>
                         </div>
-                        <div className="text-muted-foreground truncate max-w-[170px]">
+                        <div className="text-foreground font-medium leading-tight whitespace-normal">
                           {getSetorInfo(os.equipamento.setor_id)}
                         </div>
                       </div>
