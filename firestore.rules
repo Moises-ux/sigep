@@ -1,0 +1,138 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // FUNÇÕES AUXILIARES DE AUTENTICAÇÃO E PERFIL
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Busca o documento do usuário logado na coleção 'usuarios'
+    function getUserData() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    // Valida se o usuário existe e está ativo no sistema
+    function isUserActive() {
+      return isAuthenticated() && getUserData().ativo == true;
+    }
+
+    // Verificação de papéis (Roles)
+    function isAdmin() {
+      return isUserActive() && getUserData().papel == 'admin';
+    }
+
+    function isSupervisor() {
+      return isUserActive() && (getUserData().papel == 'supervisor' || isAdmin());
+    }
+
+    function isTecnico() {
+      return isUserActive() && (getUserData().papel == 'tecnico' || isAdmin());
+    }
+
+    function isSolicitante() {
+      return isUserActive() && getUserData().papel == 'solicitante';
+    }
+
+    // ===============================================================
+    // COLEÇÃO: USUARIOS
+    // ===============================================================
+    match /usuarios/{userId} {
+      // Qualquer usuário autenticado pode ler perfis para exibição de nomes
+      allow read: if isAuthenticated();
+
+      // Somente administradores podem criar, alterar ou desativar usuários
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // COLEÇÃO: SETORES
+    // ===============================================================
+    match /setores/{setorId} {
+      allow read: if isUserActive();
+      allow write: if isAdmin();
+    }
+
+    // ===============================================================
+    // COLEÇÃO: EQUIPAMENTOS
+    // ===============================================================
+    match /equipamentos/{equipamentoId} {
+      allow read: if isUserActive();
+      
+      // Criação e exclusão por Admin e Técnico
+      // Atualização de status por qualquer usuário ativo no fluxo de OS
+      allow create, delete: if isAdmin() || isTecnico();
+      allow update: if isUserActive();
+    }
+
+    // ===============================================================
+    // COLEÇÃO: ASSISTENCIAS_TECNICAS
+    // ===============================================================
+    match /assistencias_tecnicas/{assistenciaId} {
+      // Qualquer usuário ativo pode consultar as assistências para o fluxo de Check-in
+      allow read: if isUserActive();
+
+      // Somente Administradores podem cadastrar, alterar ou remover assistências técnicas
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // COLEÇÃO: ORDENS_SERVICO
+    // ===============================================================
+    match /ordens_servico/{osId} {
+      
+      // Regra de Leitura:
+      // - Admin, Supervisor e Técnico podem ver todas as OS.
+      // - Solicitante só pode ler as OS do seu próprio setor de lotação.
+      allow read: if isAdmin() || isSupervisor() || isTecnico() || 
+        (isSolicitante() && resource.data.equipamento.setor_id == getUserData().setor_id);
+
+      // Regra de Criação:
+      // Técnicos (ou Admin) abrem a OS inicial com status 'CRIADA'
+      allow create: if (isTecnico() || isAdmin()) 
+                    && request.resource.data.status == 'CRIADA';
+
+      // Regra de Atualização por Etapa e Papel:
+      allow update: if isUserActive() && (
+        // 1. O Administrador pode atualizar irrestritamente
+        isAdmin() ||
+
+        // 2. TÉCNICO: Pode editar descrições técnicas, assistencia_tecnica e histórico de observações
+        (isTecnico() && 
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'descricao_defeito', 'assistencia_tecnica', 'historico_observacoes', 'atualizado_em'
+          ])
+        ) ||
+
+        // 3. SUPERVISOR:
+        //    a) Check-in: Move de CRIADA para EM_ASSISTENCIA adicionando o objeto checkin
+        (isSupervisor() && 
+          resource.data.status == 'CRIADA' && 
+          request.resource.data.status == 'EM_ASSISTENCIA' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'checkin', 'atualizado_em'])
+        ) ||
+        //    b) Check-out: Move de EM_ASSISTENCIA para RETORNADA adicionando o objeto checkout
+        (isSupervisor() && 
+          resource.data.status == 'EM_ASSISTENCIA' && 
+          request.resource.data.status == 'RETORNADA' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'checkout', 'atualizado_em'])
+        ) ||
+
+        // 4. FUNCIONÁRIO DO SETOR (Solicitante) ou TÉCNICO:
+        //    Move de RETORNADA para CONCLUIDA confirmando o aceite do equipamento
+        (
+          ((isSolicitante() && resource.data.equipamento.setor_id == getUserData().setor_id) || isTecnico()) && 
+          resource.data.status == 'RETORNADA' && 
+          request.resource.data.status == 'CONCLUIDA' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'aceite_funcionario', 'atualizado_em'])
+        )
+      );
+
+      // Exclusão de OS restrita ao Administrador ou ao Técnico autor da criação
+      allow delete: if isAdmin() || (isTecnico() && resource.data.tecnico_id == request.auth.uid);
+    }
+  }
+}
