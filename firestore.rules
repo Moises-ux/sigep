@@ -62,9 +62,9 @@ service cloud.firestore {
     match /equipamentos/{equipamentoId} {
       allow read: if isUserActive();
       
-      // Criação e exclusão por Admin e Técnico
+      // Criação e exclusão por Admin, Técnico e Supervisor
       // Atualização de status por qualquer usuário ativo no fluxo de OS
-      allow create, delete: if isAdmin() || isTecnico();
+      allow create, delete: if isAdmin() || isTecnico() || isSupervisor();
       allow update: if isUserActive();
     }
 
@@ -91,8 +91,8 @@ service cloud.firestore {
         (isSolicitante() && resource.data.equipamento.setor_id == getUserData().setor_id);
 
       // Regra de Criação:
-      // Técnicos (ou Admin) abrem a OS inicial com status 'CRIADA'
-      allow create: if (isTecnico() || isAdmin()) 
+      // Técnicos, Supervisores ou Admin abrem a OS inicial com status 'CRIADA'
+      allow create: if (isTecnico() || isSupervisor() || isAdmin()) 
                     && request.resource.data.status == 'CRIADA';
 
       // Regra de Atualização por Etapa e Papel:
