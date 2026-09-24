@@ -1,7 +1,9 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-hooks/set-state-in-effect */
+import React, { useEffect, useState } from "react";
 import {
   AlertCircle,
+  AlertTriangle,
   Building2,
   Edit2,
   Loader2,
@@ -13,7 +15,7 @@ import {
   Trash2,
   Wrench,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+
 import {
   atualizarAssistenciaTecnica,
   criarAssistenciaTecnica,
@@ -21,6 +23,25 @@ import {
   getAssistenciasTecnicas,
 } from "../services/assistenciasService";
 import type { AssistenciaTecnica } from "../types";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export const AdminAssistenciasPage: React.FC = () => {
   const [assistencias, setAssistencias] = useState<AssistenciaTecnica[]>([]);
@@ -38,7 +59,9 @@ export const AdminAssistenciasPage: React.FC = () => {
   const [ativo, setAtivo] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Estado para Modal de Alerta de Exclusão
+  const [itemParaExcluir, setItemParaExcluir] = useState<AssistenciaTecnica | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const carregarDados = async () => {
     setLoading(true);
@@ -110,15 +133,17 @@ export const AdminAssistenciasPage: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    setDeletingId(id);
+  const handleConfirmarExclusao = async () => {
+    if (!itemParaExcluir) return;
+    setDeleting(true);
     try {
-      await excluirAssistenciaTecnica(id);
+      await excluirAssistenciaTecnica(itemParaExcluir.id);
+      setItemParaExcluir(null);
       await carregarDados();
     } catch (err) {
       console.error("Erro ao excluir assistência técnica:", err);
     } finally {
-      setDeletingId(null);
+      setDeleting(false);
     }
   };
 
@@ -130,226 +155,237 @@ export const AdminAssistenciasPage: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-800 p-6 rounded-xl border border-slate-700">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-lg">
-              <Wrench className="w-6 h-6" />
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Cabeçalho de Assistências Técnicas */}
+      <Card>
+        <CardContent className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
+                <Wrench className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold tracking-tight text-foreground m-0">
+                  Gestão de Assistências Técnicas
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5 m-0">
+                  Cadastro e gerenciamento das empresas parceiras para manutenção de equipamentos.
+                </p>
+              </div>
             </div>
-            <h1 className="text-base font-semibold text-white">
-              Gestão de Assistências Técnicas
-            </h1>
           </div>
-          <p className="text-sm text-slate-400 mt-1">
-            Cadastro e gerenciamento das empresas parceiras para manutenção de equipamentos.
-          </p>
-        </div>
 
-        <button
-          onClick={handleOpenCreateModal}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2.5 rounded-lg shadow-lg hover:shadow-blue-600/20 transition-all text-sm shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Cadastrar Assistência</span>
-        </button>
-      </div>
+          <Button onClick={handleOpenCreateModal} className="gap-2 shrink-0">
+            <Plus className="w-4 h-4" />
+            <span>Cadastrar Assistência</span>
+          </Button>
+        </CardContent>
+      </Card>
 
       {error && (
-        <div className="bg-red-950/40 border border-red-900/60 text-red-300 text-xs rounded-xl p-4 flex items-start gap-3">
-          <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-          <div>
-            <p className="font-semibold text-red-200">Erro ao carregar dados</p>
-            <p className="text-red-300/80 text-[11px] mt-0.5">{error}</p>
-          </div>
-        </div>
+        <Card className="border-destructive/20 bg-destructive/10">
+          <CardContent className="p-4 flex items-start gap-3 text-destructive">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <p className="font-semibold m-0">Erro ao carregar dados</p>
+              <p className="text-muted-foreground mt-0.5 m-0">{error}</p>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-        <div className="p-4 border-b border-slate-700 flex items-center gap-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-            <input
+      {/* Tabela de Assistências Técnicas */}
+      <Card>
+        <CardHeader className="px-6 py-4 border-b border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <CardTitle className="text-base font-bold">Lista de Assistências</CardTitle>
+            <CardDescription className="text-xs">
+              Total de {filtrados.length} empresas cadastradas
+            </CardDescription>
+          </div>
+
+          <div className="relative flex-1 max-w-md w-full">
+            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" />
+            <Input
               type="text"
               placeholder="Buscar por nome, telefone ou e-mail..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="pl-9 text-xs font-mono"
             />
           </div>
-        </div>
+        </CardHeader>
 
-        {loading ? (
-          <div className="p-12 flex justify-center items-center text-slate-400 gap-3">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-            <span>Carregando assistências...</span>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-900/60 text-slate-400 uppercase text-xs font-semibold border-b border-slate-700">
-                <tr>
-                  <th className="px-6 py-3">Empresa / Razão Social</th>
-                  <th className="px-6 py-3">Telefone / Contato</th>
-                  <th className="px-6 py-3">E-mail / Endereço</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700/60">
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="p-12 flex justify-center items-center text-muted-foreground gap-3">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              <span className="text-xs font-medium">Carregando assistências...</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[200px]">Empresa / Razão Social</TableHead>
+                  <TableHead className="w-[160px]">Telefone / Contato</TableHead>
+                  <TableHead>E-mail / Endereço</TableHead>
+                  <TableHead className="w-[120px]">Status</TableHead>
+                  <TableHead className="text-right w-[120px]">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {filtrados.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-6 py-8 text-center text-slate-400"
-                    >
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-xs">
                       Nenhuma assistência técnica cadastrada.
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   filtrados.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-slate-750 transition-colors"
-                    >
-                      <td className="px-6 py-4 font-bold text-white">
+                    <TableRow key={item.id} className="hover:bg-muted/50">
+                      <TableCell className="font-bold text-foreground text-xs">
                         <div className="flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+                          <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
                           <span>{item.nome}</span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-slate-200 font-mono">
+                      </TableCell>
+
+                      <TableCell className="font-mono text-xs text-foreground">
                         <div className="flex items-center gap-2">
-                          <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                           <span>{item.telefone}</span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-xs text-slate-300">
+                      </TableCell>
+
+                      <TableCell className="text-xs">
                         {item.email && (
-                          <div className="flex items-center gap-1.5 text-slate-300">
-                            <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-foreground">
+                            <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                             <span>{item.email}</span>
                           </div>
                         )}
                         {item.endereco && (
-                          <div className="flex items-center gap-1.5 text-slate-400 mt-0.5">
-                            <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-muted-foreground mt-0.5">
+                            <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                             <span>{item.endereco}</span>
                           </div>
                         )}
-                      </td>
-                      <td className="px-6 py-4">
+                      </TableCell>
+
+                      <TableCell>
                         {item.ativo ? (
-                          <span className="px-2.5 py-1 text-xs font-semibold rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-semibold text-xs">
                             Ativa
-                          </span>
+                          </Badge>
                         ) : (
-                          <span className="px-2.5 py-1 text-xs font-semibold rounded-md bg-slate-700/50 text-slate-400 border border-slate-600">
+                          <Badge variant="outline" className="bg-muted text-muted-foreground font-semibold text-xs">
                             Inativa
-                          </span>
+                          </Badge>
                         )}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleOpenEditModal(item)}
+                            className="h-8 w-8 p-0"
                             title="Editar"
-                            className="p-1.5 text-slate-400 hover:text-blue-400 bg-slate-900 border border-slate-700 rounded-lg transition-colors"
                           >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item.id)}
-                            disabled={deletingId === item.id}
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setItemParaExcluir(item)}
+                            className="h-8 w-8 p-0"
                             title="Excluir"
-                            className="p-1.5 text-red-400 hover:text-red-300 bg-red-950/30 border border-red-900/40 rounded-lg transition-colors disabled:opacity-50"
                           >
-                            {deletingId === item.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                          </button>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* Modal Formulário */}
+      {/* Modal Formulário (Criar / Editar) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-700 pb-3">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <Wrench className="w-5 h-5 text-blue-400" />{" "}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md">
+          <Card className="max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-border pb-3">
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2 m-0">
+                <Wrench className="w-5 h-5 text-primary" />{" "}
                 {editingId ? "Editar Assistência" : "Nova Assistência Técnica"}
               </h3>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-white"
+                className="h-8 w-8 p-0"
               >
                 ✕
-              </button>
+              </Button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
                   Nome da Empresa / Assistência *
                 </label>
-                <input
+                <Input
                   type="text"
                   required
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   placeholder="Ex: Eletrônica & Informática Silva"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="text-xs"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
                   Telefone / Whatsapp *
                 </label>
-                <input
+                <Input
                   type="text"
                   required
                   value={telefone}
                   onChange={(e) => setTelefone(e.target.value)}
                   placeholder="Ex: (83) 98888-7777"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="text-xs"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
                   E-mail de Contato (Opcional)
                 </label>
-                <input
+                <Input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="contato@empresa.com"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="text-xs"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
                   Endereço (Opcional)
                 </label>
-                <input
+                <Input
                   type="text"
                   value={endereco}
                   onChange={(e) => setEndereco(e.target.value)}
                   placeholder="Rua Central, 123 - Centro"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="text-xs"
                 />
               </div>
 
@@ -359,35 +395,90 @@ export const AdminAssistenciasPage: React.FC = () => {
                   id="ativo"
                   checked={ativo}
                   onChange={(e) => setAtivo(e.target.checked)}
-                  className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-blue-500"
+                  className="w-4 h-4 rounded bg-background border-input text-primary focus:ring-ring cursor-pointer"
                 />
-                <label htmlFor="ativo" className="text-xs text-slate-300 cursor-pointer">
+                <label htmlFor="ativo" className="text-xs text-foreground cursor-pointer select-none">
                   Empresa Ativa no Sistema
                 </label>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-700">
-                <button
+              <div className="flex justify-end gap-3 pt-3 border-t border-border">
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-sm text-slate-400 hover:text-white"
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  size="sm"
                   disabled={submitting}
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                  className="gap-2"
                 >
                   {submitting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <span>Salvar</span>
                   )}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal de Alerta de Confirmação de Exclusão */}
+      {itemParaExcluir && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md">
+          <Card className="max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center justify-center text-destructive shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-destructive m-0">Excluir Assistência Técnica</h3>
+                <p className="text-xs text-muted-foreground mt-0.5 m-0">Ação de exclusão definitiva</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed m-0">
+              Tem certeza que deseja excluir permanentemente a assistência técnica <strong className="text-foreground font-semibold">{itemParaExcluir.nome}</strong>?
+            </p>
+            <p className="text-xs text-destructive font-medium leading-relaxed m-0">
+              Esta empresa deixará de figurar nos registros do sistema para novas aberturas e envios.
+            </p>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-border">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setItemParaExcluir(null)}
+                disabled={deleting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={handleConfirmarExclusao}
+                disabled={deleting}
+                className="gap-2"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Excluindo...</span>
+                  </>
+                ) : (
+                  <span>Excluir Definitivamente</span>
+                )}
+              </Button>
+            </div>
+          </Card>
         </div>
       )}
     </div>

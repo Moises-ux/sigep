@@ -1,10 +1,29 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-hooks/set-state-in-effect */
-import { HardDrive, Loader2, Plus, Search } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Box,
+  Calendar,
+  Cpu,
+  Edit2,
+  Filter,
+  HardDrive,
+  Laptop,
+  Loader2,
+  Monitor,
+  Plus,
+  Printer,
+  Search,
+  Trash2,
+  Zap,
+} from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import {
+  atualizarEquipamento,
   criarEquipamento,
+  excluirEquipamento,
   getEquipamentos,
 } from "../services/equipamentosService";
 import { getSetores } from "../services/setoresService";
@@ -16,6 +35,8 @@ export const EquipamentosPage: React.FC = () => {
   const [setores, setSetores] = useState<Setor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedSetorFiltro, setSelectedSetorFiltro] = useState<string>("TODOS");
+  const [selectedTipoFiltro, setSelectedTipoFiltro] = useState<string>("TODOS");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [patrimonio, setPatrimonio] = useState("");
@@ -27,6 +48,46 @@ export const EquipamentosPage: React.FC = () => {
   const [observacoes, setObservacoes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Edit & Delete state
+  const [editingEquipamento, setEditingEquipamento] = useState<Equipamento | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Equipamento | null>(null);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Edit form fields
+  const [editPatrimonio, setEditPatrimonio] = useState("");
+  const [editTipo, setEditTipo] = useState("Computador");
+  const [editMarca, setEditMarca] = useState("");
+  const [editModelo, setEditModelo] = useState("");
+  const [editNumeroSerie, setEditNumeroSerie] = useState("");
+  const [editSetorId, setEditSetorId] = useState("");
+  const [editStatus, setEditStatus] = useState<string>("operacional");
+  const [editDataAlocacao, setEditDataAlocacao] = useState<string>("");
+
+  const getNowLocalISO = () => {
+    const d = new Date();
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
+
+  const parseDateToISOString = (val: any): string => {
+    if (!val) return getNowLocalISO();
+    let d: Date | null = null;
+    if (typeof val?.toDate === "function") {
+      d = val.toDate();
+    } else if (val?.seconds) {
+      d = new Date(val.seconds * 1000);
+    } else if (val instanceof Date) {
+      d = val;
+    } else if (typeof val === "string" || typeof val === "number") {
+      d = new Date(val);
+    }
+    if (!d || isNaN(d.getTime())) return getNowLocalISO();
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+  };
+
   const carregarDados = async () => {
     setLoading(true);
     try {
@@ -34,10 +95,29 @@ export const EquipamentosPage: React.FC = () => {
         getEquipamentos(),
         getSetores(),
       ]);
+
+      let mergedSetores = [...listSet];
+      const almoxIndex = mergedSetores.findIndex(
+        (s) =>
+          s.id === "setor-almoxarifado" ||
+          s.sigla.toUpperCase() === "ALMOX" ||
+          s.nome.toLowerCase().includes("almoxarifado")
+      );
+
+      if (almoxIndex === -1) {
+        const almoxDefault: Setor = {
+          id: "setor-almoxarifado",
+          nome: "Almoxarifado",
+          sigla: "ALMOX",
+          secretaria: "Secretaria de Administração",
+        };
+        mergedSetores.push(almoxDefault);
+      }
+
       setEquipamentos(listEq);
-      setSetores(listSet);
-      if (listSet.length > 0 && !setorId) {
-        setSetorId(listSet[0].id);
+      setSetores(mergedSetores);
+      if (mergedSetores.length > 0 && !setorId) {
+        setSetorId(mergedSetores[0].id);
       }
     } catch (err) {
       console.error("Erro ao carregar equipamentos:", err);
@@ -62,6 +142,7 @@ export const EquipamentosPage: React.FC = () => {
         modelo: modelo.trim(),
         numero_serie: numeroSerie.trim(),
         setor_id: setorId,
+        data_alocacao: new Date(),
         status: "operacional",
         observacoes: observacoes.trim(),
         cadastrado_por_id: usuarioData?.id,
@@ -82,9 +163,87 @@ export const EquipamentosPage: React.FC = () => {
     }
   };
 
-  const getSetorNome = (id: string) => {
+  const openEditModal = (eq: Equipamento) => {
+    setEditingEquipamento(eq);
+    setEditPatrimonio(eq.patrimonio);
+    setEditTipo(eq.tipo);
+    setEditMarca(eq.marca);
+    setEditModelo(eq.modelo);
+    setEditNumeroSerie(eq.numero_serie || "");
+    setEditSetorId(eq.setor_id);
+    setEditStatus(eq.status);
+    setEditDataAlocacao(parseDateToISOString(eq.data_alocacao));
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSetorChange = (newSetorId: string) => {
+    setEditSetorId(newSetorId);
+    if (editingEquipamento && newSetorId !== editingEquipamento.setor_id) {
+      setEditDataAlocacao(getNowLocalISO());
+    }
+  };
+
+  const handleEditarEquipamento = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEquipamento) return;
+    setSubmitting(true);
+    try {
+      const sectorChanged = editSetorId !== editingEquipamento.setor_id;
+
+      const payload: Partial<Omit<Equipamento, "id" | "criado_em">> = {
+        patrimonio: editPatrimonio.trim(),
+        tipo: editTipo,
+        marca: editMarca.trim(),
+        modelo: editModelo.trim(),
+        numero_serie: editNumeroSerie.trim(),
+        setor_id: editSetorId,
+        status: editStatus as any,
+      };
+
+      if (sectorChanged) {
+        payload.setor_anterior = editingEquipamento.setor_id;
+        payload.data_alocacao = editDataAlocacao
+          ? new Date(editDataAlocacao)
+          : new Date();
+      } else if (editDataAlocacao) {
+        payload.data_alocacao = new Date(editDataAlocacao);
+      }
+
+      await atualizarEquipamento(editingEquipamento.id, payload);
+      setIsEditModalOpen(false);
+      setEditingEquipamento(null);
+      await carregarDados();
+    } catch (err) {
+      console.error("Erro ao editar equipamento:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openDeleteAlert = (eq: Equipamento) => {
+    setDeleteTarget(eq);
+    setIsDeleteAlertOpen(true);
+  };
+
+  const handleExcluirEquipamento = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await excluirEquipamento(deleteTarget.id);
+      setIsDeleteAlertOpen(false);
+      setDeleteTarget(null);
+      await carregarDados();
+    } catch (err) {
+      console.error("Erro ao excluir equipamento:", err);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const getSetorNome = (id?: string) => {
+    if (!id) return "Sem setor";
     const s = setores.find((item) => item.id === id);
-    return s ? `${s.sigla}` : "Sem setor";
+    return s ? `${s.sigla} - ${s.nome}` : id;
   };
 
   const formatDateTime = (val?: any) => {
@@ -132,12 +291,72 @@ export const EquipamentosPage: React.FC = () => {
     }
   };
 
-  const equipamentosFiltrados = equipamentos.filter(
-    (e) =>
-      e.patrimonio.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.marca.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.modelo.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const TIPOS_EQUIPAMENTO_PADRAO = [
+    "Computador",
+    "Notebook",
+    "Impressora",
+    "Monitor",
+    "Nobreak",
+    "Outro",
+  ];
+
+  const getTypeIcon = (t: string) => {
+    switch (t) {
+      case "Computador":
+        return <Cpu className="w-4 h-4" />;
+      case "Notebook":
+        return <Laptop className="w-4 h-4" />;
+      case "Impressora":
+        return <Printer className="w-4 h-4" />;
+      case "Monitor":
+        return <Monitor className="w-4 h-4" />;
+      case "Nobreak":
+        return <Zap className="w-4 h-4" />;
+      default:
+        return <Box className="w-4 h-4" />;
+    }
+  };
+
+  const getTypePluralLabel = (t: string) => {
+    switch (t) {
+      case "Computador":
+        return "Computadores";
+      case "Notebook":
+        return "Notebooks";
+      case "Impressora":
+        return "Impressoras";
+      case "Monitor":
+        return "Monitores";
+      case "Nobreak":
+        return "Nobreaks";
+      case "Outro":
+        return "Outros";
+      default:
+        return t;
+    }
+  };
+
+  const tipologias = Array.from(
+    new Set([...TIPOS_EQUIPAMENTO_PADRAO, ...equipamentos.map((e) => e.tipo)])
+  ).filter(Boolean);
+
+  const equipamentosFiltrados = equipamentos.filter((e) => {
+    const term = searchTerm.toLowerCase().trim();
+    const matchesSearch =
+      !term ||
+      e.patrimonio.toLowerCase().includes(term) ||
+      e.marca.toLowerCase().includes(term) ||
+      e.modelo.toLowerCase().includes(term) ||
+      e.tipo.toLowerCase().includes(term);
+
+    const matchesSetor =
+      selectedSetorFiltro === "TODOS" || e.setor_id === selectedSetorFiltro;
+
+    const matchesTipo =
+      selectedTipoFiltro === "TODOS" || e.tipo === selectedTipoFiltro;
+
+    return matchesSearch && matchesSetor && matchesTipo;
+  });
 
   return (
     <div className="space-y-6">
@@ -167,16 +386,98 @@ export const EquipamentosPage: React.FC = () => {
       </div>
 
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-        <div className="p-4 border-b border-slate-700 flex items-center gap-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-            <input
-              type="text"
-              placeholder="Buscar por nº de patrimônio, marca ou modelo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+        <div className="p-4 border-b border-slate-700 space-y-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="Buscar por patrimônio, marca, modelo ou tipo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 bg-slate-900 px-3 py-2 border border-slate-700 rounded-lg">
+                <Filter className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-xs text-slate-400 font-medium whitespace-nowrap">
+                  Setor:
+                </span>
+                <select
+                  value={selectedSetorFiltro}
+                  onChange={(e) => setSelectedSetorFiltro(e.target.value)}
+                  className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer"
+                >
+                  <option value="TODOS" className="bg-slate-900 text-slate-200">
+                    Todos os Setores
+                  </option>
+                  {setores.map((s) => (
+                    <option
+                      key={s.id}
+                      value={s.id}
+                      className="bg-slate-900 text-slate-200"
+                    >
+                      {s.sigla} - {s.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Cards por Tipo de Equipamento */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
+            {tipologias.map((t) => {
+              const count = equipamentos.filter((e) => {
+                const matchesSetor =
+                  selectedSetorFiltro === "TODOS" || e.setor_id === selectedSetorFiltro;
+                return matchesSetor && e.tipo === t;
+              }).length;
+              const isSelected = selectedTipoFiltro === t;
+
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() =>
+                    setSelectedTipoFiltro(isSelected ? "TODOS" : t)
+                  }
+                  className={`flex items-center justify-between p-2.5 rounded-lg border transition-all text-left ${
+                    isSelected
+                      ? "bg-blue-600/20 border-blue-500/60 text-white shadow-sm ring-1 ring-blue-500/40"
+                      : "bg-slate-900/90 border-slate-700/80 text-slate-300 hover:bg-slate-750 hover:border-slate-600"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className={`p-1.5 rounded-md shrink-0 ${
+                        isSelected
+                          ? "bg-blue-500/30 text-blue-300"
+                          : "bg-slate-800 text-slate-400"
+                      }`}
+                    >
+                      {getTypeIcon(t)}
+                    </div>
+                    <span className="text-xs font-semibold truncate">
+                      {getTypePluralLabel(t)}
+                    </span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 text-[11px] font-bold rounded-full border shrink-0 font-mono ${
+                      isSelected
+                        ? "bg-blue-500 text-white border-blue-400"
+                        : count > 0
+                        ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                        : "bg-slate-800/80 text-slate-500 border-slate-700/50"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -192,19 +493,20 @@ export const EquipamentosPage: React.FC = () => {
                 <tr>
                   <th className="px-6 py-3">Patrimônio</th>
                   <th className="px-6 py-3">Tipo / Descrição</th>
-                  <th className="px-6 py-3">Setor</th>
+                  <th className="px-6 py-3">Setor Atual</th>
                   <th className="px-6 py-3">Cadastrado Por / Data</th>
                   <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3 text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/60">
                 {equipamentosFiltrados.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="px-6 py-8 text-center text-slate-400"
                     >
-                      Nenhum equipamento cadastrado.
+                      Nenhum equipamento encontrado.
                     </td>
                   </tr>
                 ) : (
@@ -227,7 +529,20 @@ export const EquipamentosPage: React.FC = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 text-slate-300">
-                        {getSetorNome(eq.setor_id)}
+                        <div className="font-medium text-slate-200">
+                          {getSetorNome(eq.setor_id)}
+                        </div>
+                        {eq.setor_anterior && (
+                          <div className="text-xs text-amber-400/90 font-mono mt-0.5 flex items-center gap-1">
+                            <span className="text-slate-500">Anterior:</span>
+                            <span>{getSetorNome(eq.setor_anterior)}</span>
+                          </div>
+                        )}
+                        {eq.data_alocacao && (
+                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                            Alocado em: {formatDateTime(eq.data_alocacao)}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-xs text-slate-300">
                         <div className="font-medium text-slate-200">
@@ -238,6 +553,24 @@ export const EquipamentosPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">{getStatusBadge(eq.status)}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => openEditModal(eq)}
+                            className="p-1.5 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                            title="Editar equipamento"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => openDeleteAlert(eq)}
+                            className="p-1.5 rounded-md text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                            title="Excluir equipamento"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -377,6 +710,240 @@ export const EquipamentosPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {isEditModalOpen && editingEquipamento && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-700 pb-3">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-blue-400" /> Editar
+                Equipamento
+              </h3>
+              <button
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingEquipamento(null);
+                }}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleEditarEquipamento} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  Nº Tombamento / Patrimônio
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editPatrimonio}
+                  onChange={(e) => setEditPatrimonio(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                    Tipo
+                  </label>
+                  <select
+                    value={editTipo}
+                    onChange={(e) => setEditTipo(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="Computador">Computador</option>
+                    <option value="Notebook">Notebook</option>
+                    <option value="Impressora">Impressora</option>
+                    <option value="Monitor">Monitor</option>
+                    <option value="Nobreak">Nobreak</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                    Marca
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editMarca}
+                    onChange={(e) => setEditMarca(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                    Modelo
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editModelo}
+                    onChange={(e) => setEditModelo(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                    Nº de Série
+                  </label>
+                  <input
+                    type="text"
+                    value={editNumeroSerie}
+                    onChange={(e) => setEditNumeroSerie(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                    Setor Alocado
+                  </label>
+                  <select
+                    value={editSetorId}
+                    onChange={(e) => handleEditSetorChange(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {setores.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.sigla} - {s.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="operacional">Operacional</option>
+                    <option value="em_manutencao">Em Manutenção</option>
+                    <option value="baixado">Baixado</option>
+                  </select>
+                </div>
+              </div>
+
+              {editingEquipamento && editSetorId !== editingEquipamento.setor_id && (
+                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs text-blue-300 space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5 text-blue-200">
+                    <ArrowRight className="w-3.5 h-3.5 text-blue-400" /> Alteração de Setor Detectada
+                  </div>
+                  <div>
+                    Setor Anterior: <span className="font-mono text-slate-300">{getSetorNome(editingEquipamento.setor_id)}</span>
+                  </div>
+                  <div>
+                    Novo Setor: <span className="font-mono text-emerald-400">{getSetorNome(editSetorId)}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 pt-1">
+                    O setor anterior será salvo em <code className="text-amber-300 font-mono">setor_anterior</code> e a data de alocação será atualizada.
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-blue-400" /> Data de Alocação
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editDataAlocacao}
+                  onChange={(e) => setEditDataAlocacao(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Atualizada automaticamente ao alterar o setor, ou informe uma data específica.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setEditingEquipamento(null);
+                  }}
+                  className="px-4 py-2 text-sm text-slate-400 hover:text-white"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {submitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <span>Salvar Alterações</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Alert Modal */}
+      {isDeleteAlertOpen && deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="p-3 bg-red-500/10 rounded-full">
+                <AlertTriangle className="w-8 h-8 text-red-400" />
+              </div>
+              <h3 className="text-base font-semibold text-white">
+                Excluir Equipamento
+              </h3>
+              <p className="text-sm text-slate-400">
+                Tem certeza que deseja excluir o equipamento{" "}
+                <span className="font-bold text-white">
+                  {deleteTarget.patrimonio}
+                </span>
+                ? Esta ação não pode ser desfeita.
+              </p>
+            </div>
+
+            <div className="flex justify-center gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setIsDeleteAlertOpen(false);
+                  setDeleteTarget(null);
+                }}
+                className="px-4 py-2 text-sm text-slate-400 hover:text-white border border-slate-600 rounded-lg hover:border-slate-500 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleExcluirEquipamento}
+                disabled={deleting}
+                className="bg-red-600 hover:bg-red-500 text-white font-medium px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                {deleting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Excluir</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

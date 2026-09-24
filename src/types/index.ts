@@ -1,13 +1,14 @@
-export type Role = 'admin' | 'supervisor' | 'tecnico' | 'solicitante';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export type Role = "admin" | "supervisor" | "tecnico" | "solicitante";
 
-export type OSStatus = 
-  | 'CRIADA'          // Criada pelo Técnico de TI
-  | 'EM_ASSISTENCIA'  // Check-in feito pelo Supervisor de TI (enviado à assistência)
-  | 'RETORNADA'       // Check-out feito pelo Supervisor (equipamento retornou)
-  | 'CONCLUIDA'       // Aceite confirmado pelo Solicitante/Funcionário do Setor
-  | 'CANCELADA';      // OS Cancelada
+export type OSStatus =
+  | "CRIADA" // Criada pelo Técnico de TI
+  | "EM_ASSISTENCIA" // Check-in feito pelo Supervisor de TI (enviado à assistência)
+  | "RETORNADA" // Check-out feito pelo Supervisor (equipamento retornou)
+  | "CONCLUIDA" // Aceite confirmado pelo Solicitante/Funcionário do Setor
+  | "CANCELADA"; // OS Cancelada
 
-export type EquipamentoStatus = 'operacional' | 'em_manutencao' | 'baixado';
+export type EquipamentoStatus = "operacional" | "em_manutencao" | "baixado";
 
 export interface Usuario {
   id: string;
@@ -47,6 +48,8 @@ export interface Equipamento {
   modelo: string;
   numero_serie?: string;
   setor_id: string;
+  setor_anterior?: string;
+  data_alocacao?: any;
   status: EquipamentoStatus;
   observacoes?: string;
   cadastrado_por_id?: string;

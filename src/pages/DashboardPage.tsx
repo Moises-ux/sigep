@@ -606,6 +606,44 @@ export const DashboardPage: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {osSelecionada.status === "CANCELADA" && (() => {
+                const eventoCancelamento = osSelecionada.historico_observacoes?.find(
+                  (h) => h.acao === "Cancelamento de OS"
+                );
+                return (
+                  <div className="bg-red-500/5 p-4 rounded-xl border border-red-500/20 space-y-2">
+                    <span className="text-[10px] uppercase font-mono font-semibold text-red-400 flex items-center gap-1.5">
+                      <XCircle className="w-3.5 h-3.5" />
+                      OS Cancelada
+                    </span>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      {eventoCancelamento ? (
+                        <>
+                          <p className="m-0">
+                            <span>Cancelada por:</span>{" "}
+                            <strong className="text-foreground">
+                              {eventoCancelamento.usuario_nome}
+                            </strong>
+                          </p>
+                          {eventoCancelamento.observacao && (
+                            <p className="m-0 mt-1">
+                              <span className="text-red-400 font-semibold">Motivo:</span>{" "}
+                              <span className="text-foreground">
+                                {eventoCancelamento.observacao.replace(/^Motivo:\s*/i, "")}
+                              </span>
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="m-0 text-muted-foreground">
+                          Motivo não informado.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="flex justify-end pt-3 border-t border-border">

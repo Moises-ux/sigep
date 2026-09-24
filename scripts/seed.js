@@ -50,6 +50,14 @@ async function runSeed() {
         responsavel: 'Prof. Roberto Souza',
         criado_em: FieldValue.serverTimestamp(),
       },
+      {
+        id: 'setor-almoxarifado',
+        nome: 'Almoxarifado Central',
+        sigla: 'ALMOX',
+        secretaria: 'Secretaria de Administração',
+        responsavel: 'Almoxarife Responsável',
+        criado_em: FieldValue.serverTimestamp(),
+      },
     ];
 
     for (const setor of setoresData) {

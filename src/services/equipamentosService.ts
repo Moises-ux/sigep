@@ -5,6 +5,7 @@ import {
   getDocs, 
   addDoc, 
   updateDoc, 
+  deleteDoc,
   query, 
   where, 
   orderBy, 
@@ -60,4 +61,17 @@ export const atualizarStatusEquipamento = async (
 ): Promise<void> => {
   const docRef = doc(db, EQUIPAMENTOS_COLLECTION, id);
   await updateDoc(docRef, { status });
+};
+
+export const atualizarEquipamento = async (
+  id: string,
+  dados: Partial<Omit<Equipamento, 'id' | 'criado_em'>>
+): Promise<void> => {
+  const docRef = doc(db, EQUIPAMENTOS_COLLECTION, id);
+  await updateDoc(docRef, dados);
+};
+
+export const excluirEquipamento = async (id: string): Promise<void> => {
+  const docRef = doc(db, EQUIPAMENTOS_COLLECTION, id);
+  await deleteDoc(docRef);
 };

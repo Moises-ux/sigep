@@ -4,6 +4,8 @@ import {
   getDoc, 
   getDocs, 
   addDoc, 
+  updateDoc,
+  deleteDoc,
   serverTimestamp, 
   query, 
   orderBy 
@@ -35,4 +37,17 @@ export const criarSetor = async (setor: Omit<Setor, 'id' | 'criado_em'>): Promis
     criado_em: serverTimestamp(),
   });
   return docRef.id;
+};
+
+export const atualizarSetor = async (
+  id: string,
+  setor: Partial<Omit<Setor, 'id' | 'criado_em'>>
+): Promise<void> => {
+  const docRef = doc(db, SETORES_COLLECTION, id);
+  await updateDoc(docRef, { ...setor });
+};
+
+export const excluirSetor = async (id: string): Promise<void> => {
+  const docRef = doc(db, SETORES_COLLECTION, id);
+  await deleteDoc(docRef);
 };
