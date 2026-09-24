@@ -64,7 +64,7 @@ export const LoginPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold text-white tracking-wider font-mono">
-              SIGEP-TI
+              SIGEP
             </h1>
             {/* <span className="text-[10px] font-mono font-medium px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md">
               Enterprise v1.0

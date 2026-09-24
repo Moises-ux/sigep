@@ -20,7 +20,7 @@ const auth = getAuth();
 const db = getFirestore();
 
 async function runSeed() {
-  console.log('🚀 Iniciando script de Povoamento (Seed) do SIGEP-TI...\n');
+  console.log('🚀 Iniciando script de Povoamento (Seed) do SIGEP...\n');
 
   try {
     // 1. Criar Setores na coleção 'setores'

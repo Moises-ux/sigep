@@ -132,7 +132,7 @@ const MainLayoutContent: React.FC = () => {
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <div className="flex items-center gap-1.5">
                     <span className="truncate font-semibold font-mono">
-                      SIGEP-TI
+                      SIGEP
                     </span>
                     <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded">
                       v1.0
@@ -312,7 +312,7 @@ const MainLayoutContent: React.FC = () => {
             <Separator orientation="vertical" className="mr-2 h-4" />
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="hidden sm:inline font-medium font-mono text-xs">
-                SIGEP-TI
+                SIGEP
               </span>
               <ChevronRight className="hidden sm:inline h-4 w-4" />
               <h1 className="text-sm font-semibold text-foreground tracking-tight m-0">
@@ -365,7 +365,7 @@ const MainLayoutContent: React.FC = () => {
 
             <p className="text-xs text-muted-foreground leading-relaxed">
               Tem certeza que deseja sair do{" "}
-              <strong className="text-foreground font-mono">SIGEP-TI</strong>?
+              <strong className="text-foreground font-mono">SIGEP</strong>?
               Você precisará informar suas credenciais novamente para acessar o
               painel.
             </p>

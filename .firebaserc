@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "ordem-servico-ti"
-  }
+    "prod": "sigep-b1aec"
+  },
+  "targets": {},
+  "etags": {}
 }
