@@ -42,7 +42,7 @@ export interface AssistenciaTecnica {
 
 export interface Equipamento {
   id: string;
-  patrimonio: string;
+  patrimonio?: string;
   tipo: string;
   marca: string;
   modelo: string;
@@ -59,7 +59,7 @@ export interface Equipamento {
 
 export interface EquipamentoResumido {
   id: string;
-  patrimonio: string;
+  patrimonio?: string;
   tipo: string;
   marca: string;
   modelo: string;

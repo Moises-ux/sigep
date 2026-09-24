@@ -169,7 +169,7 @@ export const DashboardPage: React.FC = () => {
     const atendeBusca =
       o.numero_os.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.descricao_defeito.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.equipamento.patrimonio.toLowerCase().includes(searchTerm.toLowerCase());
+      (o.equipamento.patrimonio || "").toLowerCase().includes(searchTerm.toLowerCase());
     return atendeStatus && atendeBusca;
   });
 

@@ -3,20 +3,14 @@
 import {
   AlertTriangle,
   ArrowRight,
-  Box,
   Calendar,
-  Cpu,
   Edit2,
   Filter,
   HardDrive,
-  Laptop,
   Loader2,
-  Monitor,
   Plus,
-  Printer,
   Search,
   Trash2,
-  Zap,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -165,7 +159,7 @@ export const EquipamentosPage: React.FC = () => {
 
   const openEditModal = (eq: Equipamento) => {
     setEditingEquipamento(eq);
-    setEditPatrimonio(eq.patrimonio);
+    setEditPatrimonio(eq.patrimonio || "");
     setEditTipo(eq.tipo);
     setEditMarca(eq.marca);
     setEditModelo(eq.modelo);
@@ -297,25 +291,13 @@ export const EquipamentosPage: React.FC = () => {
     "Impressora",
     "Monitor",
     "Nobreak",
-    "Outro",
+    "Mouse",
+    "Teclado",
+    "HD/SSD",
+    "Filtro de Linha",
+    "Tinta/Toner",
+    "Fonte de Alimentação",
   ];
-
-  const getTypeIcon = (t: string) => {
-    switch (t) {
-      case "Computador":
-        return <Cpu className="w-4 h-4" />;
-      case "Notebook":
-        return <Laptop className="w-4 h-4" />;
-      case "Impressora":
-        return <Printer className="w-4 h-4" />;
-      case "Monitor":
-        return <Monitor className="w-4 h-4" />;
-      case "Nobreak":
-        return <Zap className="w-4 h-4" />;
-      default:
-        return <Box className="w-4 h-4" />;
-    }
-  };
 
   const getTypePluralLabel = (t: string) => {
     switch (t) {
@@ -329,8 +311,18 @@ export const EquipamentosPage: React.FC = () => {
         return "Monitores";
       case "Nobreak":
         return "Nobreaks";
-      case "Outro":
-        return "Outros";
+      case "Mouse":
+        return "Mouses";
+      case "Teclado":
+        return "Teclados";
+      case "HD/SSD":
+        return "HDs / SSDs";
+      case "Filtro de Linha":
+        return "Filtros de Linha";
+      case "Tinta/Toner":
+        return "Tintas / Toners";
+      case "Fonte de Alimentação":
+        return "Fontes de Alimentação";
       default:
         return t;
     }
@@ -344,7 +336,7 @@ export const EquipamentosPage: React.FC = () => {
     const term = searchTerm.toLowerCase().trim();
     const matchesSearch =
       !term ||
-      e.patrimonio.toLowerCase().includes(term) ||
+      (e.patrimonio || "").toLowerCase().includes(term) ||
       e.marca.toLowerCase().includes(term) ||
       e.modelo.toLowerCase().includes(term) ||
       e.tipo.toLowerCase().includes(term);
@@ -386,98 +378,78 @@ export const EquipamentosPage: React.FC = () => {
       </div>
 
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-        <div className="p-4 border-b border-slate-700 space-y-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-              <input
-                type="text"
-                placeholder="Buscar por patrimônio, marca, modelo ou tipo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-2 bg-slate-900 px-3 py-2 border border-slate-700 rounded-lg">
-                <Filter className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-xs text-slate-400 font-medium whitespace-nowrap">
-                  Setor:
-                </span>
-                <select
-                  value={selectedSetorFiltro}
-                  onChange={(e) => setSelectedSetorFiltro(e.target.value)}
-                  className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer"
-                >
-                  <option value="TODOS" className="bg-slate-900 text-slate-200">
-                    Todos os Setores
-                  </option>
-                  {setores.map((s) => (
-                    <option
-                      key={s.id}
-                      value={s.id}
-                      className="bg-slate-900 text-slate-200"
-                    >
-                      {s.sigla} - {s.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+        <div className="p-4 border-b border-slate-700 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div className="relative flex-1 min-w-0 max-w-md">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            <input
+              type="text"
+              placeholder="Buscar por patrimônio, marca, modelo ou tipo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
-          {/* Cards por Tipo de Equipamento */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
-            {tipologias.map((t) => {
-              const count = equipamentos.filter((e) => {
-                const matchesSetor =
-                  selectedSetorFiltro === "TODOS" || e.setor_id === selectedSetorFiltro;
-                return matchesSetor && e.tipo === t;
-              }).length;
-              const isSelected = selectedTipoFiltro === t;
-
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() =>
-                    setSelectedTipoFiltro(isSelected ? "TODOS" : t)
-                  }
-                  className={`flex items-center justify-between p-2.5 rounded-lg border transition-all text-left ${
-                    isSelected
-                      ? "bg-blue-600/20 border-blue-500/60 text-white shadow-sm ring-1 ring-blue-500/40"
-                      : "bg-slate-900/90 border-slate-700/80 text-slate-300 hover:bg-slate-750 hover:border-slate-600"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div
-                      className={`p-1.5 rounded-md shrink-0 ${
-                        isSelected
-                          ? "bg-blue-500/30 text-blue-300"
-                          : "bg-slate-800 text-slate-400"
-                      }`}
-                    >
-                      {getTypeIcon(t)}
-                    </div>
-                    <span className="text-xs font-semibold truncate">
-                      {getTypePluralLabel(t)}
-                    </span>
-                  </div>
-                  <span
-                    className={`px-2 py-0.5 text-[11px] font-bold rounded-full border shrink-0 font-mono ${
-                      isSelected
-                        ? "bg-blue-500 text-white border-blue-400"
-                        : count > 0
-                        ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                        : "bg-slate-800/80 text-slate-500 border-slate-700/50"
-                    }`}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 min-w-0">
+            {/* Filtro de Setor */}
+            <div className="flex items-center gap-2 bg-slate-900 px-3 py-2 border border-slate-700 rounded-lg min-w-0 flex-1 sm:flex-none">
+              <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="text-xs text-slate-400 font-medium whitespace-nowrap shrink-0">
+                Setor:
+              </span>
+              <select
+                value={selectedSetorFiltro}
+                onChange={(e) => setSelectedSetorFiltro(e.target.value)}
+                className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer min-w-0 w-full sm:w-auto max-w-[180px] sm:max-w-[220px] truncate"
+              >
+                <option value="TODOS" className="bg-slate-900 text-slate-200">
+                  Todos os Setores
+                </option>
+                {setores.map((s) => (
+                  <option
+                    key={s.id}
+                    value={s.id}
+                    className="bg-slate-900 text-slate-200"
                   >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+                    {s.sigla} - {s.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro de Tipo de Equipamento */}
+            <div className="flex items-center gap-2 bg-slate-900 px-3 py-2 border border-slate-700 rounded-lg min-w-0 flex-1 sm:flex-none">
+              <HardDrive className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="text-xs text-slate-400 font-medium whitespace-nowrap shrink-0">
+                Tipo:
+              </span>
+              <select
+                value={selectedTipoFiltro}
+                onChange={(e) => setSelectedTipoFiltro(e.target.value)}
+                className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer min-w-0 w-full sm:w-auto max-w-[180px] sm:max-w-[220px] truncate"
+              >
+                <option value="TODOS" className="bg-slate-900 text-slate-200">
+                  Todos os Tipos ({equipamentos.filter(e => selectedSetorFiltro === "TODOS" || e.setor_id === selectedSetorFiltro).length})
+                </option>
+                {tipologias.map((t) => {
+                  const count = equipamentos.filter((e) => {
+                    const matchesSetor =
+                      selectedSetorFiltro === "TODOS" || e.setor_id === selectedSetorFiltro;
+                    return matchesSetor && e.tipo === t;
+                  }).length;
+
+                  return (
+                    <option
+                      key={t}
+                      value={t}
+                      className="bg-slate-900 text-slate-200"
+                    >
+                      {getTypePluralLabel(t)} ({count})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -516,7 +488,7 @@ export const EquipamentosPage: React.FC = () => {
                       className="hover:bg-slate-750 transition-colors"
                     >
                       <td className="px-6 py-4 font-bold text-white font-mono">
-                        {eq.patrimonio}
+                        {eq.patrimonio || "—"}
                       </td>
                       <td className="px-6 py-4">
                         <div className="font-semibold text-slate-200">
@@ -599,11 +571,10 @@ export const EquipamentosPage: React.FC = () => {
             <form onSubmit={handleCadastrarEquipamento} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  Nº Tombamento / Patrimônio
+                  Nº Tombamento / Patrimônio (Opcional)
                 </label>
                 <input
                   type="text"
-                  required
                   value={patrimonio}
                   onChange={(e) => setPatrimonio(e.target.value)}
                   placeholder="Ex: PAT-2026-102"
@@ -626,7 +597,12 @@ export const EquipamentosPage: React.FC = () => {
                     <option value="Impressora">Impressora</option>
                     <option value="Monitor">Monitor</option>
                     <option value="Nobreak">Nobreak</option>
-                    <option value="Outro">Outro</option>
+                    <option value="Mouse">Mouse</option>
+                    <option value="Teclado">Teclado</option>
+                    <option value="HD/SSD">HD / SSD</option>
+                    <option value="Filtro de Linha">Filtro de Linha</option>
+                    <option value="Tinta/Toner">Tinta / Toner</option>
+                    <option value="Fonte de Alimentação">Fonte de Alimentação</option>
                   </select>
                 </div>
                 <div>
@@ -660,7 +636,7 @@ export const EquipamentosPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                    Nº de Série
+                    Nº de Série (Opcional)
                   </label>
                   <input
                     type="text"
@@ -737,11 +713,10 @@ export const EquipamentosPage: React.FC = () => {
             <form onSubmit={handleEditarEquipamento} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                  Nº Tombamento / Patrimônio
+                  Nº Tombamento / Patrimônio (Opcional)
                 </label>
                 <input
                   type="text"
-                  required
                   value={editPatrimonio}
                   onChange={(e) => setEditPatrimonio(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
@@ -763,7 +738,12 @@ export const EquipamentosPage: React.FC = () => {
                     <option value="Impressora">Impressora</option>
                     <option value="Monitor">Monitor</option>
                     <option value="Nobreak">Nobreak</option>
-                    <option value="Outro">Outro</option>
+                    <option value="Mouse">Mouse</option>
+                    <option value="Teclado">Teclado</option>
+                    <option value="HD/SSD">HD / SSD</option>
+                    <option value="Filtro de Linha">Filtro de Linha</option>
+                    <option value="Tinta/Toner">Tinta / Toner</option>
+                    <option value="Fonte de Alimentação">Fonte de Alimentação</option>
                   </select>
                 </div>
                 <div>
@@ -795,7 +775,7 @@ export const EquipamentosPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
-                    Nº de Série
+                    Nº de Série (Opcional)
                   </label>
                   <input
                     type="text"
