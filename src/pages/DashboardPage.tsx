@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import {
   AlertCircle,
   Building2,
+  Calendar,
   CheckCircle2,
   CheckSquare,
   Clock,
@@ -150,6 +151,28 @@ export const DashboardPage: React.FC = () => {
   const getSetorInfo = (id: string) => {
     const s = setores.find((item) => item.id === id);
     return s ? `${s.sigla} - ${s.nome}` : "Setor não identificado";
+  };
+
+  const formatarData = (val: any): string => {
+    if (!val) return "—";
+    let d: Date | null = null;
+    if (typeof val?.toDate === "function") {
+      d = val.toDate();
+    } else if (val?.seconds) {
+      d = new Date(val.seconds * 1000);
+    } else if (val instanceof Date) {
+      d = val;
+    } else if (typeof val === "string" || typeof val === "number") {
+      d = new Date(val);
+    }
+    if (!d || isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const ordensPorSetor = ordens.filter((o) => {
@@ -378,7 +401,8 @@ export const DashboardPage: React.FC = () => {
                   <TableHead className="w-[120px]">Protocolo</TableHead>
                   <TableHead className="w-[160px]">Status</TableHead>
                   <TableHead>Equipamento & Defeito</TableHead>
-                  <TableHead className="min-w-[220px]">Patrimônio / Setor</TableHead>
+                  <TableHead className="min-w-[200px]">Patrimônio / Setor</TableHead>
+                  <TableHead className="w-[150px]">Data de Criação</TableHead>
                   <TableHead className="text-right w-[140px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -417,6 +441,13 @@ export const DashboardPage: React.FC = () => {
                         <div className="text-foreground font-medium leading-tight whitespace-normal">
                           {getSetorInfo(os.equipamento.setor_id)}
                         </div>
+                      </div>
+                    </TableCell>
+
+                    <TableCell>
+                      <div className="text-xs text-muted-foreground font-mono whitespace-nowrap flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span>{formatarData(os.criado_em)}</span>
                       </div>
                     </TableCell>
 
@@ -511,12 +542,20 @@ export const DashboardPage: React.FC = () => {
                 <p className="text-foreground text-sm font-medium m-0">
                   {osSelecionada.descricao_defeito}
                 </p>
-                <p className="text-[11px] text-muted-foreground pt-1 m-0">
-                  Aberto por:{" "}
-                  <strong className="text-foreground">
-                    {osSelecionada.tecnico_nome}
-                  </strong>
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground pt-1.5 m-0 border-t border-border/40">
+                  <p className="m-0">
+                    Aberto por:{" "}
+                    <strong className="text-foreground">
+                      {osSelecionada.tecnico_nome}
+                    </strong>
+                  </p>
+                  {osSelecionada.criado_em && (
+                    <p className="m-0 font-mono">
+                      <span>Data de Criação:</span>{" "}
+                      <strong className="text-foreground">{formatarData(osSelecionada.criado_em)}</strong>
+                    </p>
+                  )}
+                </div>
               </div>
 
               {osSelecionada.checkin && (
@@ -525,6 +564,12 @@ export const DashboardPage: React.FC = () => {
                     Check-in (Envio para Assistência)
                   </span>
                   <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Data do Check-in:</span>{" "}
+                      <strong className="text-foreground font-mono">
+                        {formatarData(osSelecionada.checkin.data)}
+                      </strong>
+                    </div>
                     <div>
                       <span className="text-muted-foreground">Empresa:</span>{" "}
                       <strong className="text-foreground">
@@ -568,42 +613,54 @@ export const DashboardPage: React.FC = () => {
                   <span className="text-[10px] uppercase font-mono font-semibold text-purple-400">
                     Check-out (Retorno da Assistência)
                   </span>
-                  <div className="text-xs text-muted-foreground">
-                    <p className="m-0">
-                      <span>
-                        Supervisor Responsável:
-                      </span>{" "}
-                      {osSelecionada.checkout.supervisor_nome}
-                    </p>
-                    {osSelecionada.checkout.observacoes && (
-                      <p className="mt-1 m-0">
-                        <span>Observações:</span>{" "}
-                        {osSelecionada.checkout.observacoes}
-                      </p>
-                    )}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Data do Check-out:</span>{" "}
+                      <strong className="text-foreground font-mono">
+                        {formatarData(osSelecionada.checkout.data)}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Supervisor Responsável:</span>{" "}
+                      <strong className="text-foreground">
+                        {osSelecionada.checkout.supervisor_nome}
+                      </strong>
+                    </div>
                   </div>
+                  {osSelecionada.checkout.observacoes && (
+                    <p className="mt-1 m-0 text-xs text-muted-foreground">
+                      <span className="font-semibold text-purple-300">Observações:</span>{" "}
+                      {osSelecionada.checkout.observacoes}
+                    </p>
+                  )}
                 </div>
               )}
 
               {osSelecionada.aceite_funcionario && (
                 <div className="bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/20 space-y-2">
                   <span className="text-[10px] uppercase font-mono font-semibold text-emerald-400">
-                    Aceite e Conclusão pelo Setor
+                    Aceite e Conclusão pelo Setor (Recebimento)
                   </span>
-                  <div className="text-xs text-muted-foreground">
-                    <p className="m-0">
-                      <span>
-                        Servidor Responsável:
-                      </span>{" "}
-                      {osSelecionada.aceite_funcionario.funcionario_nome}
-                    </p>
-                    {osSelecionada.aceite_funcionario.observacoes && (
-                      <p className="mt-1 m-0">
-                        <span>Observações:</span>{" "}
-                        {osSelecionada.aceite_funcionario.observacoes}
-                      </p>
-                    )}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Data de Recebimento:</span>{" "}
+                      <strong className="text-foreground font-mono">
+                        {formatarData(osSelecionada.aceite_funcionario.data)}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Servidor Responsável:</span>{" "}
+                      <strong className="text-foreground">
+                        {osSelecionada.aceite_funcionario.funcionario_nome}
+                      </strong>
+                    </div>
                   </div>
+                  {osSelecionada.aceite_funcionario.observacoes && (
+                    <p className="mt-1 m-0 text-xs text-muted-foreground">
+                      <span className="font-semibold text-emerald-300">Observações:</span>{" "}
+                      {osSelecionada.aceite_funcionario.observacoes}
+                    </p>
+                  )}
                 </div>
               )}
 
