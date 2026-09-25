@@ -13,7 +13,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { getEquipamentosBySetor } from "../services/equipamentosService";
 import { abrirOS } from "../services/osService";
 import { getSetores } from "../services/setoresService";
-import type { Equipamento, Setor } from "../types";
+import type { Equipamento, OSPrioridade, Setor } from "../types";
 
 export const NovaOSPage: React.FC = () => {
   const { usuarioData } = useAuth();
@@ -27,6 +27,8 @@ export const NovaOSPage: React.FC = () => {
   const [setorId, setSetorId] = useState("");
   const [equipamentoId, setEquipamentoId] = useState("");
   const [defeitoRelatado, setDefeitoRelatado] = useState("");
+  const [prioridade, setPrioridade] = useState<OSPrioridade>("baixa");
+  const [justificativaPrioridade, setJustificativaPrioridade] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +91,11 @@ export const NovaOSPage: React.FC = () => {
       return;
     }
 
+    if ((prioridade === "alta" || prioridade === "critica") && !justificativaPrioridade.trim()) {
+      setError("A justificativa é obrigatória para prioridades Alta ou Crítica/Urgente.");
+      return;
+    }
+
     setError(null);
     setSubmitting(true);
 
@@ -105,6 +112,8 @@ export const NovaOSPage: React.FC = () => {
         tecnicoId: usuarioData.id,
         tecnicoNome: usuarioData.nome,
         defeitoRelatado: defeitoRelatado.trim(),
+        prioridade,
+        justificativaPrioridade: (prioridade === "alta" || prioridade === "critica") ? justificativaPrioridade.trim() : undefined,
       });
 
       navigate("/dashboard");
@@ -204,6 +213,40 @@ export const NovaOSPage: React.FC = () => {
             </select>
           )}
         </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-300 uppercase mb-2 flex items-center gap-1.5 font-mono">
+            <AlertCircle className="w-4 h-4 text-blue-400" />
+            <span>Nível de Atenção / Prioridade</span>
+          </label>
+          <select
+            value={prioridade}
+            onChange={(e) => setPrioridade(e.target.value as OSPrioridade)}
+            className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-white focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+          >
+            <option value="baixa">Baixa</option>
+            <option value="media">Média</option>
+            <option value="alta">Alta</option>
+            <option value="critica">Crítica/Urgente</option>
+          </select>
+        </div>
+
+        {(prioridade === "alta" || prioridade === "critica") && (
+          <div>
+            <label className="block text-xs font-semibold text-amber-400 uppercase mb-2 flex items-center gap-1.5 font-mono">
+              <AlertCircle className="w-4 h-4 text-amber-400" />
+              <span>Justificativa da Prioridade *</span>
+            </label>
+            <textarea
+              required
+              rows={3}
+              value={justificativaPrioridade}
+              onChange={(e) => setJustificativaPrioridade(e.target.value)}
+              placeholder="Descreva a justificativa para o nível de prioridade Alta ou Crítica..."
+              className="w-full px-3.5 py-2.5 bg-slate-950 border border-amber-500/40 rounded-xl text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none placeholder:text-slate-500 font-sans"
+            />
+          </div>
+        )}
 
         <div>
           <label className="block text-xs font-semibold text-slate-300 uppercase mb-2 flex items-center gap-1.5 font-mono">

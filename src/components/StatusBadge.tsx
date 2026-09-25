@@ -52,5 +52,12 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
           <span>Cancelada</span>
         </Badge>
       );
+    case 'ARQUIVADA':
+      return (
+        <Badge variant="outline" className={`gap-1.5 bg-slate-500/10 text-slate-400 border-slate-500/20 font-medium ${sizeClasses}`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+          <span>Arquivada</span>
+        </Badge>
+      );
   }
 };

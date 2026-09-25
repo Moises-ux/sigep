@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ===============================================================
-    // FUNÇÕES AUXILIARES DE AUTENTICAÇÃO E PERFIL
+    // FUNÇÕES AUXILIARES DE AUTENTICAÇÃO E HIERARQUIA DE PERMISSÕES
     // ===============================================================
 
     function isAuthenticated() {
@@ -15,26 +15,32 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
     }
 
+    // Retorna o papel (role) do usuário logado
+    function obterPapel() {
+      return getUserData().papel;
+    }
+
     // Valida se o usuário existe e está ativo no sistema
     function isUserActive() {
       return isAuthenticated() && getUserData().ativo == true;
     }
 
-    // Verificação de papéis (Roles)
+    // Hierarquia de Permissões:
+    // admin possui todas as permissões de supervisor e tecnico
     function isAdmin() {
-      return isUserActive() && getUserData().papel == 'admin';
+      return isUserActive() && obterPapel() == 'admin';
     }
 
     function isSupervisor() {
-      return isUserActive() && (getUserData().papel == 'supervisor' || isAdmin());
+      return isUserActive() && (obterPapel() == 'supervisor' || isAdmin());
     }
 
     function isTecnico() {
-      return isUserActive() && (getUserData().papel == 'tecnico' || isAdmin());
+      return isUserActive() && (obterPapel() == 'tecnico' || isSupervisor());
     }
 
     function isSolicitante() {
-      return isUserActive() && getUserData().papel == 'solicitante';
+      return isUserActive() && obterPapel() == 'solicitante';
     }
 
     // ===============================================================
@@ -62,9 +68,9 @@ service cloud.firestore {
     match /equipamentos/{equipamentoId} {
       allow read: if isUserActive();
       
-      // Criação e exclusão por Admin, Técnico e Supervisor
+      // Criação e exclusão por Admin, Supervisor ou Técnico (isTecnico)
       // Atualização de status por qualquer usuário ativo no fluxo de OS
-      allow create, delete: if isAdmin() || isTecnico() || isSupervisor();
+      allow create, delete: if isTecnico();
       allow update: if isUserActive();
     }
 
@@ -85,54 +91,34 @@ service cloud.firestore {
     match /ordens_servico/{osId} {
       
       // Regra de Leitura:
-      // - Admin, Supervisor e Técnico podem ver todas as OS.
+      // - Admin, Supervisor e Técnico (isTecnico) podem ver todas as OS.
       // - Solicitante só pode ler as OS do seu próprio setor de lotação.
-      allow read: if isAdmin() || isSupervisor() || isTecnico() || 
-        (isSolicitante() && resource.data.equipamento.setor_id == getUserData().setor_id);
+      allow read: if isUserActive() && (
+        isTecnico() || 
+        (isSolicitante() && resource.data.equipamento.setor_id == getUserData().setor_id)
+      );
 
       // Regra de Criação:
-      // Técnicos, Supervisores ou Admin abrem a OS inicial com status 'CRIADA'
-      allow create: if (isTecnico() || isSupervisor() || isAdmin()) 
-                    && request.resource.data.status == 'CRIADA';
+      // Técnicos, Supervisores ou Admin (isTecnico) abrem a OS inicial com status 'CRIADA'
+      allow create: if isTecnico() && request.resource.data.status == 'CRIADA';
 
       // Regra de Atualização por Etapa e Papel:
+      // - Permitido para isTecnico() (edição de dados, alteração de prioridade, check-in, check-out, cancelamento)
+      // - Permitido para isSupervisor() realizando soft delete (request.resource.data.deletado == true)
+      // - Permitido para Solicitante no fluxo de confirmação de aceite (RETORNADA -> CONCLUIDA)
       allow update: if isUserActive() && (
-        // 1. O Administrador pode atualizar irrestritamente
-        isAdmin() ||
-
-        // 2. TÉCNICO: Pode editar descrições técnicas, assistencia_tecnica e histórico de observações
-        (isTecnico() && 
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'descricao_defeito', 'assistencia_tecnica', 'historico_observacoes', 'atualizado_em'
-          ])
-        ) ||
-
-        // 3. SUPERVISOR:
-        //    a) Check-in: Move de CRIADA para EM_ASSISTENCIA adicionando o objeto checkin
-        (isSupervisor() && 
-          resource.data.status == 'CRIADA' && 
-          request.resource.data.status == 'EM_ASSISTENCIA' &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'checkin', 'atualizado_em'])
-        ) ||
-        //    b) Check-out: Move de EM_ASSISTENCIA para RETORNADA adicionando o objeto checkout
-        (isSupervisor() && 
-          resource.data.status == 'EM_ASSISTENCIA' && 
-          request.resource.data.status == 'RETORNADA' &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'checkout', 'atualizado_em'])
-        ) ||
-
-        // 4. FUNCIONÁRIO DO SETOR (Solicitante) ou TÉCNICO:
-        //    Move de RETORNADA para CONCLUIDA confirmando o aceite do equipamento
+        isTecnico() ||
+        (isSupervisor() && request.resource.data.deletado == true) ||
         (
-          ((isSolicitante() && resource.data.equipamento.setor_id == getUserData().setor_id) || isTecnico()) && 
+          ((isSolicitante() && resource.data.equipamento.setor_id == getUserData().setor_id) || isTecnico()) &&
           resource.data.status == 'RETORNADA' && 
-          request.resource.data.status == 'CONCLUIDA' &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'aceite_funcionario', 'atualizado_em'])
+          request.resource.data.status == 'CONCLUIDA'
         )
       );
 
-      // Exclusão de OS restrita ao Administrador ou ao Técnico autor da criação
-      allow delete: if isAdmin() || (isTecnico() && resource.data.tecnico_id == request.auth.uid);
+      // Exclusão Física (Hard Delete) do banco de dados:
+      // Permitido estritamente e apenas para Administradores
+      allow delete: if isAdmin();
     }
   }
 }

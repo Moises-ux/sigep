@@ -9,12 +9,15 @@ import {
   where, 
   orderBy, 
   serverTimestamp, 
-  arrayUnion 
+  arrayUnion,
+  deleteField,
+  deleteDoc 
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { 
   OrdemServico, 
   OSStatus, 
+  OSPrioridade,
   EquipamentoResumido, 
   CheckInInfo, 
   CheckOutInfo, 
@@ -86,9 +89,12 @@ export const abrirOS = async (dados: {
   tecnicoId: string;
   tecnicoNome: string;
   defeitoRelatado: string;
+  prioridade?: OSPrioridade;
+  justificativaPrioridade?: string;
 }): Promise<string> => {
   const numero_os = gerarNumeroOS();
   const agora = new Date().toISOString();
+  const prioridadeVal = dados.prioridade || 'baixa';
 
   const primeiroHistorico: HistoricoObservacao = {
     id: crypto.randomUUID(),
@@ -96,7 +102,7 @@ export const abrirOS = async (dados: {
     usuario_id: dados.tecnicoId,
     usuario_nome: dados.tecnicoNome,
     acao: 'Abertura de OS',
-    observacao: `OS criada com defeito relatado: "${dados.defeitoRelatado}"`,
+    observacao: `OS criada com defeito relatado: "${dados.defeitoRelatado}" (Prioridade: ${prioridadeVal})`,
   };
 
   const novaOS: Omit<OrdemServico, 'id'> = {
@@ -105,6 +111,8 @@ export const abrirOS = async (dados: {
     tecnico_id: dados.tecnicoId,
     tecnico_nome: dados.tecnicoNome,
     descricao_defeito: dados.defeitoRelatado,
+    prioridade: prioridadeVal,
+    ...(dados.justificativaPrioridade?.trim() ? { justificativa_prioridade: dados.justificativaPrioridade.trim() } : {}),
     status: 'CRIADA',
     criado_em: serverTimestamp(),
     atualizado_em: serverTimestamp(),
@@ -227,4 +235,198 @@ export const cancelarOS = async (dados: {
   });
 
   await atualizarStatusEquipamento(dados.equipamentoId, 'operacional');
+};
+
+export const atualizarPrioridadeOS = async (dados: {
+  osId: string;
+  novaPrioridade: OSPrioridade;
+  justificativaPrioridade?: string;
+  usuarioId: string;
+  usuarioNome: string;
+}): Promise<void> => {
+  const docRef = doc(db, OS_COLLECTION, dados.osId);
+  const agora = new Date().toISOString();
+  const isAltaOuCritica = dados.novaPrioridade === 'alta' || dados.novaPrioridade === 'critica';
+
+  const eventoHistorico: HistoricoObservacao = {
+    id: crypto.randomUUID(),
+    data: agora,
+    usuario_id: dados.usuarioId,
+    usuario_nome: dados.usuarioNome,
+    acao: 'Alteração de Prioridade',
+    observacao: `Prioridade alterada para "${dados.novaPrioridade.toUpperCase()}"${
+      isAltaOuCritica && dados.justificativaPrioridade?.trim()
+        ? `. Justificativa: ${dados.justificativaPrioridade.trim()}`
+        : ''
+    }`,
+  };
+
+  const updatePayload: Record<string, any> = {
+    prioridade: dados.novaPrioridade,
+    prioridade_alterada_por: {
+      id: dados.usuarioId,
+      nome: dados.usuarioNome,
+    },
+    prioridade_alterada_em: serverTimestamp(),
+    atualizado_em: serverTimestamp(),
+    historico_observacoes: arrayUnion(eventoHistorico),
+  };
+
+  if (isAltaOuCritica) {
+    if (dados.justificativaPrioridade?.trim()) {
+      updatePayload.justificativa_prioridade = dados.justificativaPrioridade.trim();
+    }
+  } else {
+    updatePayload.justificativa_prioridade = deleteField();
+  }
+
+  await updateDoc(docRef, updatePayload);
+};
+
+export const editarOS = async (dados: {
+  osId: string;
+  equipamento?: EquipamentoResumido;
+  descricaoDefeito?: string;
+  prioridade?: OSPrioridade;
+  justificativaPrioridade?: string;
+  usuarioId: string;
+  usuarioNome: string;
+}): Promise<void> => {
+  const docRef = doc(db, OS_COLLECTION, dados.osId);
+  const agora = new Date().toISOString();
+
+  const alteracoesText: string[] = [];
+  if (dados.equipamento) alteracoesText.push('Equipamento');
+  if (dados.descricaoDefeito !== undefined) alteracoesText.push('Descrição do defeito');
+  if (dados.prioridade !== undefined) alteracoesText.push('Prioridade');
+
+  const descObs = alteracoesText.length > 0 
+    ? `Dados editados (${alteracoesText.join(', ')})` 
+    : 'Edição de OS realizada';
+
+  const eventoHistorico: HistoricoObservacao = {
+    id: crypto.randomUUID(),
+    data: agora,
+    usuario_id: dados.usuarioId,
+    usuario_nome: dados.usuarioNome,
+    acao: 'Edição de OS',
+    observacao: descObs,
+  };
+
+  const payload: Record<string, any> = {
+    atualizado_por: {
+      id: dados.usuarioId,
+      nome: dados.usuarioNome,
+    },
+    atualizado_em: serverTimestamp(),
+    historico_observacoes: arrayUnion(eventoHistorico),
+  };
+
+  if (dados.equipamento) {
+    payload.equipamento = dados.equipamento;
+  }
+  if (dados.descricaoDefeito !== undefined) {
+    payload.descricao_defeito = dados.descricaoDefeito.trim();
+  }
+  if (dados.prioridade !== undefined) {
+    payload.prioridade = dados.prioridade;
+    payload.prioridade_alterada_por = {
+      id: dados.usuarioId,
+      nome: dados.usuarioNome,
+    };
+    payload.prioridade_alterada_em = serverTimestamp();
+
+    if (dados.prioridade === 'alta' || dados.prioridade === 'critica') {
+      if (dados.justificativaPrioridade?.trim()) {
+        payload.justificativa_prioridade = dados.justificativaPrioridade.trim();
+      }
+    } else {
+      payload.justificativa_prioridade = deleteField();
+    }
+  }
+
+  await updateDoc(docRef, payload);
+};
+
+export const softDeleteOS = async (dados: {
+  osId: string;
+  equipamentoId?: string;
+  usuarioId: string;
+  usuarioNome: string;
+  motivo?: string;
+}): Promise<void> => {
+  const docRef = doc(db, OS_COLLECTION, dados.osId);
+  const agora = new Date().toISOString();
+
+  const eventoHistorico: HistoricoObservacao = {
+    id: crypto.randomUUID(),
+    data: agora,
+    usuario_id: dados.usuarioId,
+    usuario_nome: dados.usuarioNome,
+    acao: 'Exclusão Lógica (Arquivamento)',
+    observacao: dados.motivo?.trim() ? `Motivo: ${dados.motivo.trim()}` : 'OS arquivada pelo supervisor',
+  };
+
+  await updateDoc(docRef, {
+    deletado: true,
+    deletado_por: {
+      id: dados.usuarioId,
+      nome: dados.usuarioNome,
+    },
+    deletado_em: serverTimestamp(),
+    status: 'ARQUIVADA',
+    historico_observacoes: arrayUnion(eventoHistorico),
+    atualizado_em: serverTimestamp(),
+  });
+
+  if (dados.equipamentoId) {
+    await atualizarStatusEquipamento(dados.equipamentoId, 'operacional');
+  }
+};
+
+export const hardDeleteOS = async (dados: {
+  osId: string;
+  equipamentoId?: string;
+}): Promise<void> => {
+  const docRef = doc(db, OS_COLLECTION, dados.osId);
+  await deleteDoc(docRef);
+
+  if (dados.equipamentoId) {
+    await atualizarStatusEquipamento(dados.equipamentoId, 'operacional');
+  }
+};
+
+export const restaurarOS = async (dados: {
+  osId: string;
+  equipamentoId?: string;
+  usuarioId: string;
+  usuarioNome: string;
+}): Promise<void> => {
+  const docRef = doc(db, OS_COLLECTION, dados.osId);
+  const agora = new Date().toISOString();
+
+  const eventoHistorico: HistoricoObservacao = {
+    id: crypto.randomUUID(),
+    data: agora,
+    usuario_id: dados.usuarioId,
+    usuario_nome: dados.usuarioNome,
+    acao: 'Restauração de OS',
+    observacao: 'OS restaurada da lixeira pelo administrador',
+  };
+
+  await updateDoc(docRef, {
+    deletado: false,
+    status: 'CRIADA',
+    restaurado_por: {
+      id: dados.usuarioId,
+      nome: dados.usuarioNome,
+    },
+    restaurado_em: serverTimestamp(),
+    historico_observacoes: arrayUnion(eventoHistorico),
+    atualizado_em: serverTimestamp(),
+  });
+
+  if (dados.equipamentoId) {
+    await atualizarStatusEquipamento(dados.equipamentoId, 'em_manutencao');
+  }
 };

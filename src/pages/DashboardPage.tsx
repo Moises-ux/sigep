@@ -8,12 +8,16 @@ import {
   CheckCircle2,
   CheckSquare,
   Clock,
+  Edit3,
   Eye,
   FileText,
   HardDrive,
   Inbox,
   Loader2,
+  Lock,
+  RotateCcw,
   Search,
+  Trash2,
   UserCheck,
   Wrench,
   XCircle,
@@ -22,15 +26,23 @@ import {
 import { OSStepper } from "../components/OSStepper";
 import { SkeletonTable } from "../components/SkeletonLoader";
 import { StatusBadge } from "../components/StatusBadge";
+import { PriorityBadge } from "../components/PriorityBadge";
+import { ConfirmModal } from "../components/ConfirmModal";
+import { EditarOSModal } from "../components/EditarOSModal";
 import { useAuth } from "../contexts/AuthContext";
 import {
+  atualizarPrioridadeOS,
   cancelarOS,
   confirmarRecebimento,
+  getOSById,
   getOrdensServico,
   getOrdensServicoBySetor,
+  hardDeleteOS,
+  restaurarOS,
+  softDeleteOS,
 } from "../services/osService";
 import { getSetores } from "../services/setoresService";
-import type { OrdemServico, Setor } from "../types";
+import type { OrdemServico, OSPrioridade, Setor } from "../types";
 
 import {
   Card,
@@ -59,6 +71,7 @@ export const DashboardPage: React.FC = () => {
 
   const [statusFiltro, setStatusFiltro] = useState<string>("TODOS");
   const [setorFiltro, setSetorFiltro] = useState<string>("TODOS");
+  const [prioridadeFiltro, setPrioridadeFiltro] = useState<string>("TODOS");
   const [searchTerm, setSearchTerm] = useState("");
 
   const [osSelecionada, setOsSelecionada] = useState<OrdemServico | null>(null);
@@ -72,6 +85,33 @@ export const DashboardPage: React.FC = () => {
   );
   const [motivoCancelamento, setMotivoCancelamento] = useState("");
   const [submittingCancelamento, setSubmittingCancelamento] = useState(false);
+
+  const isAdmin = usuarioData?.papel === "admin";
+  const isSupervisor = usuarioData?.papel === "supervisor" || isAdmin;
+  const isTecnico = usuarioData?.papel === "tecnico" || isSupervisor;
+  const canEditPriority = isTecnico;
+
+  const [editandoPrioridade, setEditandoPrioridade] = useState(false);
+  const [novaPrioridadeVal, setNovaPrioridadeVal] = useState<OSPrioridade>("baixa");
+  const [novaJustificativaVal, setNovaJustificativaVal] = useState("");
+  const [submittingPrioridade, setSubmittingPrioridade] = useState(false);
+  const [erroPrioridade, setErroPrioridade] = useState<string | null>(null);
+
+  // Modal de Edição de OS
+  const [osParaEditar, setOsParaEditar] = useState<OrdemServico | null>(null);
+
+  // Modal de Soft Delete (Arquivamento)
+  const [osParaArquivar, setOsParaArquivar] = useState<OrdemServico | null>(null);
+  const [motivoArquivamento, setMotivoArquivamento] = useState("");
+  const [submittingArquivamento, setSubmittingArquivamento] = useState(false);
+
+  // Modal de Hard Delete (Exclusão Física Definitiva)
+  const [osParaExcluirHard, setOsParaExcluirHard] = useState<OrdemServico | null>(null);
+  const [submittingExclusaoHard, setSubmittingExclusaoHard] = useState(false);
+
+  // Modal de Restauração de OS (Admin)
+  const [osParaRestaurar, setOsParaRestaurar] = useState<OrdemServico | null>(null);
+  const [submittingRestauracao, setSubmittingRestauracao] = useState(false);
 
   const carregarDados = async () => {
     try {
@@ -148,6 +188,127 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  const handleSalvarPrioridade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!osSelecionada || !usuarioData || !canEditPriority) return;
+
+    if (
+      osSelecionada.status === "CONCLUIDA" ||
+      osSelecionada.status === "CANCELADA" ||
+      osSelecionada.status === "ARQUIVADA"
+    ) {
+      setErroPrioridade(
+        "Não é permitido alterar a prioridade de uma Ordem de Serviço concluída, cancelada ou arquivada."
+      );
+      return;
+    }
+
+    if (
+      (novaPrioridadeVal === "alta" || novaPrioridadeVal === "critica") &&
+      !novaJustificativaVal.trim()
+    ) {
+      setErroPrioridade(
+        "A justificativa é obrigatória para prioridades Alta ou Crítica/Urgente."
+      );
+      return;
+    }
+
+    setSubmittingPrioridade(true);
+    setErroPrioridade(null);
+
+    try {
+      await atualizarPrioridadeOS({
+        osId: osSelecionada.id,
+        novaPrioridade: novaPrioridadeVal,
+        justificativaPrioridade: novaJustificativaVal.trim() || undefined,
+        usuarioId: usuarioData.id,
+        usuarioNome: usuarioData.nome,
+      });
+
+      setEditandoPrioridade(false);
+      await carregarDados();
+      const updated = await getOSById(osSelecionada.id);
+      if (updated) setOsSelecionada(updated);
+    } catch (err: any) {
+      console.error("Erro ao alterar prioridade:", err);
+      setErroPrioridade(err.message || "Falha ao alterar prioridade da OS.");
+    } finally {
+      setSubmittingPrioridade(false);
+    }
+  };
+
+  const handleConfirmarSoftDelete = async () => {
+    if (!osParaArquivar || !usuarioData || !isSupervisor) return;
+
+    setSubmittingArquivamento(true);
+    try {
+      await softDeleteOS({
+        osId: osParaArquivar.id,
+        equipamentoId: osParaArquivar.equipamento.id,
+        usuarioId: usuarioData.id,
+        usuarioNome: usuarioData.nome,
+        motivo: motivoArquivamento.trim(),
+      });
+
+      setOsParaArquivar(null);
+      setMotivoArquivamento("");
+      if (osSelecionada?.id === osParaArquivar.id) {
+        setOsSelecionada(null);
+      }
+      await carregarDados();
+    } catch (err) {
+      console.error("Erro ao arquivar (soft delete) OS:", err);
+    } finally {
+      setSubmittingArquivamento(false);
+    }
+  };
+
+  const handleConfirmarHardDelete = async () => {
+    if (!osParaExcluirHard || !usuarioData || !isAdmin) return;
+
+    setSubmittingExclusaoHard(true);
+    try {
+      await hardDeleteOS({
+        osId: osParaExcluirHard.id,
+        equipamentoId: osParaExcluirHard.equipamento.id,
+      });
+
+      setOsParaExcluirHard(null);
+      if (osSelecionada?.id === osParaExcluirHard.id) {
+        setOsSelecionada(null);
+      }
+      await carregarDados();
+    } catch (err) {
+      console.error("Erro ao excluir permanentemente OS:", err);
+    } finally {
+      setSubmittingExclusaoHard(false);
+    }
+  };
+
+  const handleConfirmarRestauracao = async () => {
+    if (!osParaRestaurar || !usuarioData || !isAdmin) return;
+
+    setSubmittingRestauracao(true);
+    try {
+      await restaurarOS({
+        osId: osParaRestaurar.id,
+        equipamentoId: osParaRestaurar.equipamento.id,
+        usuarioId: usuarioData.id,
+        usuarioNome: usuarioData.nome,
+      });
+
+      setOsParaRestaurar(null);
+      if (osSelecionada?.id === osParaRestaurar.id) {
+        setOsSelecionada(null);
+      }
+      await carregarDados();
+    } catch (err) {
+      console.error("Erro ao restaurar OS:", err);
+    } finally {
+      setSubmittingRestauracao(false);
+    }
+  };
+
   const getSetorInfo = (id: string) => {
     const s = setores.find((item) => item.id === id);
     return s ? `${s.sigla} - ${s.nome}` : "Setor não identificado";
@@ -179,26 +340,39 @@ export const DashboardPage: React.FC = () => {
     return setorFiltro === "TODOS" || o.equipamento.setor_id === setorFiltro;
   });
 
-  const totalOS = ordensPorSetor.length;
-  const criadasOS = ordensPorSetor.filter((o) => o.status === "CRIADA").length;
-  const assistenciaOS = ordensPorSetor.filter(
+  const ordensAtivas = ordensPorSetor.filter((o) => !o.deletado && o.status !== "ARQUIVADA");
+  const ordensArquivadas = ordensPorSetor.filter((o) => o.deletado || o.status === "ARQUIVADA");
+
+  const totalOS = ordensAtivas.length;
+  const criadasOS = ordensAtivas.filter((o) => o.status === "CRIADA").length;
+  const assistenciaOS = ordensAtivas.filter(
     (o) => o.status === "EM_ASSISTENCIA"
   ).length;
-  const retornadasOS = ordensPorSetor.filter((o) => o.status === "RETORNADA").length;
-  const concluidasOS = ordensPorSetor.filter((o) => o.status === "CONCLUIDA").length;
+  const retornadasOS = ordensAtivas.filter((o) => o.status === "RETORNADA").length;
+  const concluidasOS = ordensAtivas.filter((o) => o.status === "CONCLUIDA").length;
+  const arquivadasOSCount = ordensArquivadas.length;
 
   const ordensFiltradas = ordensPorSetor.filter((o) => {
-    const atendeStatus = statusFiltro === "TODOS" || o.status === statusFiltro;
+    if (statusFiltro === "ARQUIVADA") {
+      if (!o.deletado && o.status !== "ARQUIVADA") return false;
+    } else {
+      if (o.deletado || o.status === "ARQUIVADA") return false;
+      if (statusFiltro !== "TODOS" && o.status !== statusFiltro) return false;
+    }
+
+    const atendePrioridade =
+      prioridadeFiltro === "TODOS" || (o.prioridade || "baixa") === prioridadeFiltro;
     const atendeBusca =
       o.numero_os.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.descricao_defeito.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (o.equipamento.patrimonio || "").toLowerCase().includes(searchTerm.toLowerCase());
-    return atendeStatus && atendeBusca;
+    return atendePrioridade && atendeBusca;
   });
 
   const limparFiltros = () => {
     setStatusFiltro("TODOS");
     setSetorFiltro("TODOS");
+    setPrioridadeFiltro("TODOS");
     setSearchTerm("");
   };
 
@@ -333,16 +507,33 @@ export const DashboardPage: React.FC = () => {
                 </select>
               </div>
             )}
+
+            {/* Filtro por Nível de Prioridade */}
+            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+              <AlertCircle className="w-4 h-4 text-muted-foreground shrink-0" />
+              <select
+                value={prioridadeFiltro}
+                onChange={(e) => setPrioridadeFiltro(e.target.value)}
+                className="w-full sm:w-auto h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-foreground font-medium cursor-pointer"
+              >
+                <option value="TODOS">Todas as Prioridades</option>
+                <option value="baixa">Baixa</option>
+                <option value="media">Média</option>
+                <option value="alta">Alta</option>
+                <option value="critica">Crítica/Urgente</option>
+              </select>
+            </div>
           </div>
 
           {/* Botões de Filtro por Status */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0">
             {[
-              { id: "TODOS", label: "Todos", count: totalOS },
+              { id: "TODOS", label: "Todas", count: totalOS },
               { id: "CRIADA", label: "Criadas", count: criadasOS },
               { id: "EM_ASSISTENCIA", label: "Em Reparo", count: assistenciaOS },
               { id: "RETORNADA", label: "Retornadas", count: retornadasOS },
               { id: "CONCLUIDA", label: "Concluídas", count: concluidasOS },
+              ...(isAdmin ? [{ id: "ARQUIVADA", label: "Lixeira / Arquivadas", count: arquivadasOSCount }] : []),
             ].map((st) => (
               <Button
                 key={st.id}
@@ -399,6 +590,7 @@ export const DashboardPage: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[120px]">Protocolo</TableHead>
+                  <TableHead className="w-[130px]">Prioridade</TableHead>
                   <TableHead className="w-[160px]">Status</TableHead>
                   <TableHead>Equipamento & Defeito</TableHead>
                   <TableHead className="min-w-[200px]">Patrimônio / Setor</TableHead>
@@ -413,6 +605,10 @@ export const DashboardPage: React.FC = () => {
                       <Badge variant="outline" className="font-mono text-xs font-bold">
                         {os.numero_os}
                       </Badge>
+                    </TableCell>
+
+                    <TableCell>
+                      <PriorityBadge prioridade={os.prioridade} size="sm" />
                     </TableCell>
 
                     <TableCell>
@@ -445,9 +641,17 @@ export const DashboardPage: React.FC = () => {
                     </TableCell>
 
                     <TableCell>
-                      <div className="text-xs text-muted-foreground font-mono whitespace-nowrap flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <span>{formatarData(os.criado_em)}</span>
+                      <div className="text-xs text-muted-foreground font-mono whitespace-nowrap space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span>{formatarData(os.criado_em)}</span>
+                        </div>
+                        {isAdmin && (os.deletado || os.status === "ARQUIVADA" || os.deletado_em) && (
+                          <div className="flex items-center gap-1 text-[11px] text-red-400 font-sans font-medium">
+                            <Trash2 className="w-3 h-3 shrink-0" />
+                            <span>Excluído: {formatarData(os.deletado_em)}</span>
+                          </div>
+                        )}
                       </div>
                     </TableCell>
 
@@ -464,10 +668,22 @@ export const DashboardPage: React.FC = () => {
                           <span className="hidden sm:inline">Detalhes</span>
                         </Button>
 
+                        {isTecnico && !os.deletado && os.status !== "CONCLUIDA" && os.status !== "CANCELADA" && os.status !== "ARQUIVADA" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setOsParaEditar(os)}
+                            className="h-8 px-2 gap-1 text-xs text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
+                            title="Editar dados da OS"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span className="hidden md:inline">Editar</span>
+                          </Button>
+                        )}
+
                         {os.status === "RETORNADA" &&
-                          (usuarioData?.papel === "solicitante" ||
-                            usuarioData?.papel === "tecnico" ||
-                            usuarioData?.papel === "admin") && (
+                          !os.deletado &&
+                          (usuarioData?.papel === "solicitante" || isTecnico) && (
                             <Button
                               size="sm"
                               onClick={() => setOsParaReceber(os)}
@@ -478,9 +694,22 @@ export const DashboardPage: React.FC = () => {
                             </Button>
                           )}
 
+                        {isSupervisor && os.status === "CRIADA" && !os.deletado && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setOsParaArquivar(os)}
+                            className="h-8 px-2 gap-1 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                            title="Excluir OS (Soft Delete)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span className="hidden md:inline">Excluir</span>
+                          </Button>
+                        )}
+
                         {(os.status === "CRIADA" || os.status === "EM_ASSISTENCIA") &&
-                          (usuarioData?.papel === "admin" ||
-                            os.tecnico_id === usuarioData?.id) && (
+                          !os.deletado &&
+                          (isAdmin || os.tecnico_id === usuarioData?.id) && (
                             <Button
                               variant="destructive"
                               size="sm"
@@ -491,6 +720,31 @@ export const DashboardPage: React.FC = () => {
                               <XCircle className="w-4 h-4" />
                             </Button>
                           )}
+
+                        {isAdmin && (os.deletado || os.status === "ARQUIVADA") && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setOsParaRestaurar(os)}
+                            className="h-8 px-2 gap-1 text-xs text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                            title="Restaurar OS da Lixeira"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span className="hidden md:inline">Restaurar</span>
+                          </Button>
+                        )}
+
+                        {isAdmin && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setOsParaExcluirHard(os)}
+                            className="h-8 w-8 p-0"
+                            title="Exclusão Física Definitiva (Hard Delete)"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -507,10 +761,58 @@ export const DashboardPage: React.FC = () => {
           <Card className="max-w-3xl w-full p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start border-b border-border pb-4">
               <div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <span className="font-mono text-base font-bold tracking-wider">
                     {osSelecionada.numero_os}
                   </span>
+                  
+                  <div className="flex items-center gap-1.5">
+                    <PriorityBadge prioridade={osSelecionada.prioridade} />
+
+                    {canEditPriority &&
+                    osSelecionada.status !== "CONCLUIDA" &&
+                    osSelecionada.status !== "CANCELADA" &&
+                    osSelecionada.status !== "ARQUIVADA" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        onClick={() => {
+                          setEditandoPrioridade(!editandoPrioridade);
+                          setNovaPrioridadeVal(osSelecionada.prioridade || "baixa");
+                          setNovaJustificativaVal(osSelecionada.justificativa_prioridade || "");
+                          setErroPrioridade(null);
+                        }}
+                        className="h-6 px-2 text-[10px] gap-1 font-medium cursor-pointer"
+                        title="Alterar prioridade da OS"
+                      >
+                        <Edit3 className="w-3 h-3 text-muted-foreground" />
+                        <span>Alterar Prioridade</span>
+                      </Button>
+                    ) : (
+                      <Badge
+                        variant="secondary"
+                        className="h-6 px-2 text-[10px] gap-1 font-normal opacity-80 cursor-not-allowed"
+                        title={
+                          osSelecionada.status === "CONCLUIDA" ||
+                          osSelecionada.status === "CANCELADA" ||
+                          osSelecionada.status === "ARQUIVADA"
+                            ? "Não é possível alterar a prioridade de uma OS concluída, cancelada ou arquivada"
+                            : "Visualização em apenas leitura para solicitantes"
+                        }
+                      >
+                        <Lock className="w-3 h-3 text-muted-foreground" />
+                        <span>
+                          {osSelecionada.status === "CONCLUIDA" ||
+                          osSelecionada.status === "CANCELADA" ||
+                          osSelecionada.status === "ARQUIVADA"
+                            ? "Prioridade Bloqueada"
+                            : "Somente Leitura"}
+                        </span>
+                      </Badge>
+                    )}
+                  </div>
+
                   <StatusBadge status={osSelecionada.status} />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 font-mono">
@@ -523,18 +825,136 @@ export const DashboardPage: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setOsSelecionada(null)}
+                onClick={() => {
+                  setOsSelecionada(null);
+                  setEditandoPrioridade(false);
+                }}
                 className="h-8 w-8 p-0"
               >
                 ✕
               </Button>
             </div>
 
+            {editandoPrioridade &&
+              canEditPriority &&
+              osSelecionada.status !== "CONCLUIDA" &&
+              osSelecionada.status !== "CANCELADA" &&
+              osSelecionada.status !== "ARQUIVADA" && (
+              <form onSubmit={handleSalvarPrioridade} className="bg-muted/80 p-4 rounded-xl border border-border space-y-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase font-mono text-foreground">
+                    Alteração de Nível de Prioridade
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    onClick={() => setEditandoPrioridade(false)}
+                    className="h-6 text-[11px] px-2"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+
+                {erroPrioridade && (
+                  <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 p-2 rounded-lg">
+                    {erroPrioridade}
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1 uppercase font-mono">
+                      Novo Nível de Prioridade
+                    </label>
+                    <select
+                      value={novaPrioridadeVal}
+                      onChange={(e) => setNovaPrioridadeVal(e.target.value as OSPrioridade)}
+                      className="w-full h-9 px-3 bg-background border border-input rounded-md text-xs font-mono text-foreground focus:ring-1 focus:ring-ring outline-none"
+                    >
+                      <option value="baixa">Baixa</option>
+                      <option value="media">Média</option>
+                      <option value="alta">Alta</option>
+                      <option value="critica">Crítica/Urgente</option>
+                    </select>
+                  </div>
+
+                  {(novaPrioridadeVal === "alta" || novaPrioridadeVal === "critica") && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-amber-400 mb-1 uppercase font-mono">
+                        Justificativa da Prioridade *
+                      </label>
+                      <textarea
+                        rows={2}
+                        required
+                        value={novaJustificativaVal}
+                        onChange={(e) => setNovaJustificativaVal(e.target.value)}
+                        placeholder="Descreva a justificativa para definir a OS como Alta ou Crítica..."
+                        className="w-full p-2.5 bg-background border border-amber-500/40 rounded-md text-xs text-foreground focus:ring-1 focus:ring-amber-500 outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={submittingPrioridade}
+                    className="h-8 text-xs gap-1.5"
+                  >
+                    {submittingPrioridade ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      "Confirmar e Salvar Prioridade"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            )}
+
             <div className="bg-muted/50 p-4 rounded-xl border border-border">
               <OSStepper os={osSelecionada} />
             </div>
 
             <div className="space-y-4 text-xs">
+              {isAdmin && (osSelecionada.deletado || osSelecionada.status === "ARQUIVADA" || osSelecionada.deletado_em) && (
+                <div className="bg-red-500/10 p-4 rounded-xl border border-red-500/20 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-[10px] uppercase font-mono font-semibold text-red-400 flex items-center gap-1.5">
+                      <Trash2 className="w-3.5 h-3.5" />
+                      OS Excluída / Arquivada pelo Supervisor
+                    </span>
+                    <Button
+                      size="sm"
+                      onClick={() => setOsParaRestaurar(osSelecionada)}
+                      className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white gap-1"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Restaurar OS</span>
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    {osSelecionada.deletado_em && (
+                      <div>
+                        <span className="text-muted-foreground">Data da Exclusão:</span>{" "}
+                        <strong className="text-foreground font-mono">
+                          {formatarData(osSelecionada.deletado_em)}
+                        </strong>
+                      </div>
+                    )}
+                    {osSelecionada.deletado_por && (
+                      <div>
+                        <span className="text-muted-foreground">Excluído por:</span>{" "}
+                        <strong className="text-foreground">
+                          {osSelecionada.deletado_por.nome}
+                        </strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="bg-card p-4 rounded-xl border border-border space-y-1">
                 <span className="text-[10px] uppercase font-mono font-semibold text-muted-foreground">
                   Defeito Relatado
@@ -542,6 +962,36 @@ export const DashboardPage: React.FC = () => {
                 <p className="text-foreground text-sm font-medium m-0">
                   {osSelecionada.descricao_defeito}
                 </p>
+                {(osSelecionada.prioridade === "alta" || osSelecionada.prioridade === "critica") &&
+                  osSelecionada.justificativa_prioridade && (
+                    <div className="mt-2.5 pt-2 border-t border-border/40">
+                      <span className="text-[10px] uppercase font-mono font-semibold text-amber-400">
+                        Justificativa da Prioridade
+                      </span>
+                      <p className="text-foreground text-xs mt-0.5 m-0 font-normal">
+                        {osSelecionada.justificativa_prioridade}
+                      </p>
+                    </div>
+                  )}
+                {osSelecionada.prioridade_alterada_por && (
+                  <div className="mt-2.5 pt-2 border-t border-border/40 text-[11px] text-muted-foreground font-mono flex flex-wrap items-center gap-1.5">
+                    <span>Prioridade alterada por:</span>
+                    <strong className="text-foreground">{osSelecionada.prioridade_alterada_por.nome}</strong>
+                    {osSelecionada.prioridade_alterada_em && (
+                      <span>em {formatarData(osSelecionada.prioridade_alterada_em)}</span>
+                    )}
+                  </div>
+                )}
+                {osSelecionada.restaurado_por && (
+                  <div className="mt-2.5 pt-2 border-t border-border/40 text-[11px] text-emerald-400 font-mono flex flex-wrap items-center gap-1.5">
+                    <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                    <span>Restaurado por:</span>
+                    <strong className="text-foreground">{osSelecionada.restaurado_por.nome}</strong>
+                    {osSelecionada.restaurado_em && (
+                      <span>em {formatarData(osSelecionada.restaurado_em)}</span>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground pt-1.5 m-0 border-t border-border/40">
                   <p className="m-0">
                     Aberto por:{" "}
@@ -830,6 +1280,102 @@ export const DashboardPage: React.FC = () => {
           </Card>
         </div>
       )}
+
+      {/* Modal de Edição de OS */}
+      <EditarOSModal
+        os={osParaEditar}
+        isOpen={!!osParaEditar}
+        onClose={() => setOsParaEditar(null)}
+        onSuccess={async () => {
+          await carregarDados();
+          if (osSelecionada && osParaEditar && osSelecionada.id === osParaEditar.id) {
+            const updated = await getOSById(osSelecionada.id);
+            if (updated) setOsSelecionada(updated);
+          }
+        }}
+      />
+
+      {/* Modal de Confirmação de Soft Delete (Exclusão por Supervisor) */}
+      <ConfirmModal
+        isOpen={!!osParaArquivar}
+        title={`Excluir OS (${osParaArquivar?.numero_os || ""})`}
+        variant="warning"
+        loading={submittingArquivamento}
+        confirmText="Confirmar Exclusão"
+        onClose={() => {
+          setOsParaArquivar(null);
+          setMotivoArquivamento("");
+        }}
+        onConfirm={handleConfirmarSoftDelete}
+        description={
+          <div className="space-y-3">
+            <p className="m-0">
+              Esta ação realiza a <strong>exclusão lógica (Soft Delete)</strong>. A OS será removida da listagem padrão e seu status passará para <strong>Arquivada</strong>.
+            </p>
+            <div>
+              <label className="block text-[11px] font-semibold uppercase text-muted-foreground mb-1 font-mono">
+                Motivo da Exclusão (Opcional)
+              </label>
+              <textarea
+                rows={2}
+                value={motivoArquivamento}
+                onChange={(e) => setMotivoArquivamento(e.target.value)}
+                placeholder="Ex: Registro duplicado ou cancelado..."
+                className="w-full p-2 bg-background border border-input rounded-md text-xs text-foreground outline-none"
+              />
+            </div>
+          </div>
+        }
+      />
+
+      {/* Modal de Confirmação de Hard Delete (Exclusão Definitiva - Admin) */}
+      <ConfirmModal
+        isOpen={!!osParaExcluirHard}
+        title="Exclusão Física Definitiva (Hard Delete)"
+        variant="destructive"
+        loading={submittingExclusaoHard}
+        confirmText="Excluir Definitivamente"
+        onClose={() => setOsParaExcluirHard(null)}
+        onConfirm={handleConfirmarHardDelete}
+        description={
+          <div className="space-y-2">
+            <p className="m-0 text-red-400 font-semibold">
+              ATENÇÃO: Ação Irreversível!
+            </p>
+            <p className="m-0">
+              Você está prestes a remover definitivamente a Ordem de Serviço{" "}
+              <strong className="font-mono text-foreground">{osParaExcluirHard?.numero_os}</strong>{" "}
+              do banco de dados Firestore (`deleteDoc`).
+            </p>
+            <p className="m-0 text-[11px] text-muted-foreground">
+              Esta ação apagará todo o histórico e não poderá ser desfeita.
+            </p>
+          </div>
+        }
+      />
+
+      {/* Modal de Confirmação de Restauração de OS (Admin) */}
+      <ConfirmModal
+        isOpen={!!osParaRestaurar}
+        title={`Restaurar OS (${osParaRestaurar?.numero_os || ""})`}
+        variant="warning"
+        loading={submittingRestauracao}
+        confirmText="Confirmar Restauração"
+        onClose={() => setOsParaRestaurar(null)}
+        onConfirm={handleConfirmarRestauracao}
+        description={
+          <div className="space-y-2">
+            <p className="m-0">
+              Você está prestes a restaurar a Ordem de Serviço{" "}
+              <strong className="font-mono text-foreground">{osParaRestaurar?.numero_os}</strong>{" "}
+              da lixeira.
+            </p>
+            <p className="m-0 text-[11px] text-muted-foreground">
+              Ao restaurar, o status retornará para <strong>CRIADA</strong>, a OS voltará para a listagem principal e o equipamento será redefinido para status de manutenção.
+            </p>
+          </div>
+        }
+      />
     </div>
   );
 };

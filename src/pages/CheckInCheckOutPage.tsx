@@ -1,6 +1,6 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 import { ArrowLeftRight, CheckCircle, Loader2, ShieldAlert, Wrench } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import { PriorityBadge } from "../components/PriorityBadge";
 import { useAuth } from "../contexts/AuthContext";
 import { getAssistenciasTecnicas } from "../services/assistenciasService";
 import {
@@ -193,6 +193,7 @@ export const CheckInCheckOutPage: React.FC = () => {
                 <thead className="bg-slate-900/60 text-slate-400 uppercase text-xs font-semibold border-b border-slate-700">
                   <tr>
                     <th className="px-6 py-3">Número OS</th>
+                    <th className="px-6 py-3">Prioridade</th>
                     <th className="px-6 py-3">Equipamento</th>
                     <th className="px-6 py-3">Setor Origem</th>
                     <th className="px-6 py-3">Defeito</th>
@@ -203,7 +204,7 @@ export const CheckInCheckOutPage: React.FC = () => {
                   {osCriadas.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={6}
                         className="px-6 py-8 text-center text-slate-400"
                       >
                         Nenhuma OS aguardando envio para assistência técnica.
@@ -217,6 +218,9 @@ export const CheckInCheckOutPage: React.FC = () => {
                       >
                         <td className="px-6 py-4 font-bold text-white font-mono">
                           {os.numero_os}
+                        </td>
+                        <td className="px-6 py-4">
+                          <PriorityBadge prioridade={os.prioridade} size="sm" />
                         </td>
                         <td className="px-6 py-4">
                           {os.equipamento.tipo} {os.equipamento.marca}{" "}
@@ -267,6 +271,7 @@ export const CheckInCheckOutPage: React.FC = () => {
                 <thead className="bg-slate-900/60 text-slate-400 uppercase text-xs font-semibold border-b border-slate-700">
                   <tr>
                     <th className="px-6 py-3">Número OS</th>
+                    <th className="px-6 py-3">Prioridade</th>
                     <th className="px-6 py-3">Equipamento</th>
                     <th className="px-6 py-3">Empresa Externa</th>
                     <th className="px-6 py-3 text-right">Ação</th>
@@ -276,7 +281,7 @@ export const CheckInCheckOutPage: React.FC = () => {
                   {osEmAssistencia.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={4}
+                        colSpan={5}
                         className="px-6 py-8 text-center text-slate-400"
                       >
                         Nenhum equipamento atualmente em assistência externa.
@@ -290,6 +295,9 @@ export const CheckInCheckOutPage: React.FC = () => {
                       >
                         <td className="px-6 py-4 font-bold text-white font-mono">
                           {os.numero_os}
+                        </td>
+                        <td className="px-6 py-4">
+                          <PriorityBadge prioridade={os.prioridade} size="sm" />
                         </td>
                         <td className="px-6 py-4">
                           {os.equipamento.tipo} {os.equipamento.marca}{" "}

@@ -6,7 +6,10 @@ export type OSStatus =
   | "EM_ASSISTENCIA" // Check-in feito pelo Supervisor de TI (enviado à assistência)
   | "RETORNADA" // Check-out feito pelo Supervisor (equipamento retornou)
   | "CONCLUIDA" // Aceite confirmado pelo Solicitante/Funcionário do Setor
-  | "CANCELADA"; // OS Cancelada
+  | "CANCELADA" // OS Cancelada
+  | "ARQUIVADA"; // OS Excluída Lógicamente / Arquivada
+
+export type OSPrioridade = "baixa" | "media" | "alta" | "critica";
 
 export type EquipamentoStatus = "operacional" | "em_manutencao" | "baixado";
 
@@ -100,11 +103,25 @@ export interface HistoricoObservacao {
   observacao?: string;
 }
 
+export interface UsuarioAuditInfo {
+  id: string;
+  nome: string;
+}
+
+export interface PrioridadeAlteradaPorInfo {
+  id: string;
+  nome: string;
+}
+
 export interface OrdemServico {
   id: string;
   numero_os: string;
   equipamento: EquipamentoResumido;
   descricao_defeito: string;
+  prioridade?: OSPrioridade;
+  justificativa_prioridade?: string;
+  prioridade_alterada_por?: PrioridadeAlteradaPorInfo;
+  prioridade_alterada_em?: any;
   tecnico_id: string;
   tecnico_nome: string;
   status: OSStatus;
@@ -115,6 +132,12 @@ export interface OrdemServico {
   valor_orcamento?: number;
   previsao_retorno?: string;
   historico_observacoes?: HistoricoObservacao[];
+  atualizado_por?: UsuarioAuditInfo;
+  deletado?: boolean;
+  deletado_por?: UsuarioAuditInfo;
+  deletado_em?: any;
+  restaurado_por?: UsuarioAuditInfo;
+  restaurado_em?: any;
   criado_em?: any;
   atualizado_em?: any;
 }
