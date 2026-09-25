@@ -400,7 +400,7 @@ export const EquipamentosPage: React.FC = () => {
               <select
                 value={selectedSetorFiltro}
                 onChange={(e) => setSelectedSetorFiltro(e.target.value)}
-                className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer min-w-0 w-full sm:w-auto max-w-[180px] sm:max-w-[220px] truncate"
+                className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer min-w-0 flex-1 w-full sm:w-auto sm:max-w-[220px] truncate"
               >
                 <option value="TODOS" className="bg-slate-900 text-slate-200">
                   Todos os Setores
@@ -426,7 +426,7 @@ export const EquipamentosPage: React.FC = () => {
               <select
                 value={selectedTipoFiltro}
                 onChange={(e) => setSelectedTipoFiltro(e.target.value)}
-                className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer min-w-0 w-full sm:w-auto max-w-[180px] sm:max-w-[220px] truncate"
+                className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer min-w-0 flex-1 w-full sm:w-auto sm:max-w-[220px] truncate"
               >
                 <option value="TODOS" className="bg-slate-900 text-slate-200">
                   Todos os Tipos ({equipamentos.filter(e => selectedSetorFiltro === "TODOS" || e.setor_id === selectedSetorFiltro).length})
