@@ -646,7 +646,7 @@ export const DashboardPage: React.FC = () => {
                           <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                           <span>{formatarData(os.criado_em)}</span>
                         </div>
-                        {isAdmin && (os.deletado || os.status === "ARQUIVADA" || os.deletado_em) && (
+                        {isAdmin && (os.deletado || os.status === "ARQUIVADA") && os.deletado_em && (
                           <div className="flex items-center gap-1 text-[11px] text-red-400 font-sans font-medium">
                             <Trash2 className="w-3 h-3 shrink-0" />
                             <span>Excluído: {formatarData(os.deletado_em)}</span>
@@ -918,7 +918,7 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             <div className="space-y-4 text-xs">
-              {isAdmin && (osSelecionada.deletado || osSelecionada.status === "ARQUIVADA" || osSelecionada.deletado_em) && (
+              {isAdmin && (osSelecionada.deletado || osSelecionada.status === "ARQUIVADA") && (
                 <div className="bg-red-500/10 p-4 rounded-xl border border-red-500/20 space-y-2">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <span className="text-[10px] uppercase font-mono font-semibold text-red-400 flex items-center gap-1.5">

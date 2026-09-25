@@ -416,6 +416,8 @@ export const restaurarOS = async (dados: {
 
   await updateDoc(docRef, {
     deletado: false,
+    deletado_por: deleteField(),
+    deletado_em: deleteField(),
     status: 'CRIADA',
     restaurado_por: {
       id: dados.usuarioId,
