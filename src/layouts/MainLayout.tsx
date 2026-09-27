@@ -95,6 +95,12 @@ const MainLayoutContent: React.FC = () => {
     setOpenMobile(false);
   };
 
+  const isActiveRoute = (path: string) => {
+    return (
+      location.pathname === path || location.pathname.startsWith(`${path}/`)
+    );
+  };
+
   const getPageTitle = () => {
     switch (location.pathname) {
       case "/dashboard":
@@ -159,7 +165,7 @@ const MainLayoutContent: React.FC = () => {
                     render={
                       <NavLink to="/dashboard" onClick={handleNavClick} />
                     }
-                    isActive={location.pathname === "/dashboard"}
+                    isActive={isActiveRoute("/dashboard")}
                     tooltip="Dashboard OS"
                   >
                     <LayoutDashboard />
@@ -173,7 +179,7 @@ const MainLayoutContent: React.FC = () => {
                       render={
                         <NavLink to="/os/nova" onClick={handleNavClick} />
                       }
-                      isActive={location.pathname === "/os/nova"}
+                      isActive={isActiveRoute("/os/nova")}
                       tooltip="Abrir Nova OS"
                     >
                       <PlusCircle className="text-blue-400" />
@@ -191,7 +197,7 @@ const MainLayoutContent: React.FC = () => {
                           onClick={handleNavClick}
                         />
                       }
-                      isActive={location.pathname === "/os/checkin-checkout"}
+                      isActive={isActiveRoute("/os/checkin-checkout")}
                       tooltip="Check-in / Check-out"
                     >
                       <ArrowRightLeft className="text-indigo-400" />
@@ -206,7 +212,7 @@ const MainLayoutContent: React.FC = () => {
                       render={
                         <NavLink to="/equipamentos" onClick={handleNavClick} />
                       }
-                      isActive={location.pathname === "/equipamentos"}
+                      isActive={isActiveRoute("/equipamentos")}
                       tooltip="Equipamentos"
                     >
                       <HardDrive className="text-emerald-400" />
@@ -233,7 +239,7 @@ const MainLayoutContent: React.FC = () => {
                           onClick={handleNavClick}
                         />
                       }
-                      isActive={location.pathname === "/admin/usuarios"}
+                      isActive={isActiveRoute("/admin/usuarios")}
                       tooltip="Gestão de Usuários"
                     >
                       <Users className="text-purple-400" />
@@ -246,7 +252,7 @@ const MainLayoutContent: React.FC = () => {
                       render={
                         <NavLink to="/admin/setores" onClick={handleNavClick} />
                       }
-                      isActive={location.pathname === "/admin/setores"}
+                      isActive={isActiveRoute("/admin/setores")}
                       tooltip="Gestão de Setores"
                     >
                       <Building2 className="text-purple-400" />
@@ -262,7 +268,7 @@ const MainLayoutContent: React.FC = () => {
                           onClick={handleNavClick}
                         />
                       }
-                      isActive={location.pathname === "/admin/assistencias"}
+                      isActive={isActiveRoute("/admin/assistencias")}
                       tooltip="Assistências Técnicas"
                     >
                       <Wrench className="text-indigo-400" />
