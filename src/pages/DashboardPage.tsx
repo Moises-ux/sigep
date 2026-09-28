@@ -1020,12 +1020,14 @@ export const DashboardPage: React.FC = () => {
                         {formatarData(osSelecionada.checkin.data)}
                       </strong>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Empresa:</span>{" "}
-                      <strong className="text-foreground">
-                        {osSelecionada.checkin.empresa_externa}
-                      </strong>
-                    </div>
+                    {usuarioData?.papel !== "solicitante" && (
+                      <div>
+                        <span className="text-muted-foreground">Empresa:</span>{" "}
+                        <strong className="text-foreground">
+                          {osSelecionada.checkin.empresa_externa}
+                        </strong>
+                      </div>
+                    )}
                     {osSelecionada.checkin.contato && (
                       <div>
                         <span className="text-muted-foreground">Contato:</span>{" "}
@@ -1045,7 +1047,7 @@ export const DashboardPage: React.FC = () => {
                       </div>
                     )}
                     <div>
-                      <span className="text-muted-foreground">Supervisor:</span>{" "}
+                      <span className="text-muted-foreground">Responsável pelo Check-in:</span>{" "}
                       {osSelecionada.checkin.supervisor_nome}
                     </div>
                   </div>
@@ -1071,7 +1073,7 @@ export const DashboardPage: React.FC = () => {
                       </strong>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Supervisor Responsável:</span>{" "}
+                      <span className="text-muted-foreground">Responsável pelo Check-out:</span>{" "}
                       <strong className="text-foreground">
                         {osSelecionada.checkout.supervisor_nome}
                       </strong>

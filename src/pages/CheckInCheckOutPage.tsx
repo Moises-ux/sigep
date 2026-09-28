@@ -13,8 +13,14 @@ import type { AssistenciaTecnica, OrdemServico, Setor } from "../types";
 
 export const CheckInCheckOutPage: React.FC = () => {
   const { usuarioData } = useAuth();
-  const isSupervisorOrAdmin =
-    usuarioData?.papel === "supervisor" || usuarioData?.papel === "admin";
+  const role = usuarioData?.papel
+    ?.toLowerCase()
+    ?.normalize("NFD")
+    ?.replace(/[\u0300-\u036f]/g, "");
+  const canPerformCheckInOut =
+    role === "tecnico" ||
+    role === "supervisor" ||
+    role === "admin";
   const [activeTab, setActiveTab] = useState<"checkin" | "checkout">("checkin");
 
   const [osCriadas, setOsCriadas] = useState<OrdemServico[]>([]);
@@ -71,7 +77,7 @@ export const CheckInCheckOutPage: React.FC = () => {
 
   const handleConfirmarCheckIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!osCheckIn || !usuarioData || !isSupervisorOrAdmin) return;
+    if (!osCheckIn || !usuarioData || !canPerformCheckInOut) return;
 
     setSubmittingCheckIn(true);
     try {
@@ -96,7 +102,7 @@ export const CheckInCheckOutPage: React.FC = () => {
 
   const handleConfirmarCheckOut = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!osCheckOut || !usuarioData || !isSupervisorOrAdmin) return;
+    if (!osCheckOut || !usuarioData || !canPerformCheckInOut) return;
 
     setSubmittingCheckOut(true);
     try {
@@ -140,18 +146,18 @@ export const CheckInCheckOutPage: React.FC = () => {
               </p>
             </div>
           </div>
-          {!isSupervisorOrAdmin && (
+          {!canPerformCheckInOut && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
               <ShieldAlert className="w-3.5 h-3.5" /> Modo Leitura
             </span>
           )}
         </div>
 
-        {!isSupervisorOrAdmin && (
+        {!canPerformCheckInOut && (
           <div className="mt-4 p-3 bg-slate-900/60 border border-slate-700/80 rounded-xl flex items-center gap-2.5 text-xs text-slate-300">
             <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400" />
             <span>
-              Você está visualizando a listagem em <strong>modo leitura</strong>. Apenas Supervisores e Administradores podem realizar movimentações de Check-in e Check-out.
+              Você está visualizando a listagem em <strong>modo leitura</strong>. Apenas Técnicos, Supervisores e Administradores podem realizar movimentações de Check-in e Check-out.
             </span>
           </div>
         )}
@@ -234,7 +240,7 @@ export const CheckInCheckOutPage: React.FC = () => {
                           {os.descricao_defeito}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          {isSupervisorOrAdmin ? (
+                          {canPerformCheckInOut ? (
                             <button
                               onClick={() => handleAbrirCheckInModal(os)}
                               className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow transition-all flex items-center gap-1.5 ml-auto"
@@ -308,7 +314,7 @@ export const CheckInCheckOutPage: React.FC = () => {
                           {os.checkin?.empresa_externa || "Não informada"}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          {isSupervisorOrAdmin ? (
+                          {canPerformCheckInOut ? (
                             <button
                               onClick={() => setOsCheckOut(os)}
                               className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow transition-all flex items-center gap-1.5 ml-auto"
