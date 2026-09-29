@@ -56,6 +56,7 @@ export interface Equipamento {
   data_alocacao?: any;
   status: EquipamentoStatus;
   observacoes?: string;
+  imagem_url?: string;
   total_manutencoes_concluidas?: number;
   cadastrado_por_id?: string;
   cadastrado_por_nome?: string;

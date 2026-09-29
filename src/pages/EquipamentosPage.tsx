@@ -7,21 +7,28 @@ import {
   ArrowRight,
   Calendar,
   Edit2,
+  Eye,
   Filter,
   HardDrive,
+  Image as ImageIcon,
   Loader2,
   Plus,
   Search,
   Trash2,
+  Upload,
   Wrench,
+  X,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import { deleteField } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext";
 import {
   atualizarEquipamento,
   criarEquipamento,
   excluirEquipamento,
+  excluirImagemEquipamentoStorage,
   getEquipamentos,
+  uploadImagemEquipamento,
 } from "../services/equipamentosService";
 import { getSetores } from "../services/setoresService";
 import type { Equipamento, EquipamentoStatus, Setor } from "../types";
@@ -44,6 +51,8 @@ export const EquipamentosPage: React.FC = () => {
   const [numeroSerie, setNumeroSerie] = useState("");
   const [setorId, setSetorId] = useState("");
   const [observacoes, setObservacoes] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Edit & Delete state
@@ -63,6 +72,28 @@ export const EquipamentosPage: React.FC = () => {
   const [editSetorId, setEditSetorId] = useState("");
   const [editStatus, setEditStatus] = useState<string>("operacional");
   const [editDataAlocacao, setEditDataAlocacao] = useState<string>("");
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+
+  // Modal para visualização expandida de imagem
+  const [selectedEnlargedImage, setSelectedEnlargedImage] = useState<string | null>(null);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit = false) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("O arquivo da imagem deve ter no máximo 5MB.");
+        return;
+      }
+      if (isEdit) {
+        setEditImageFile(file);
+        setEditImagePreview(URL.createObjectURL(file));
+      } else {
+        setImageFile(file);
+        setImagePreview(URL.createObjectURL(file));
+      }
+    }
+  };
 
   const getNowLocalISO = () => {
     const d = new Date();
@@ -134,6 +165,11 @@ export const EquipamentosPage: React.FC = () => {
     setSubmitting(true);
 
     try {
+      let uploadedImageUrl = "";
+      if (imageFile) {
+        uploadedImageUrl = await uploadImagemEquipamento(imageFile);
+      }
+
       await criarEquipamento({
         patrimonio: patrimonio.trim(),
         tipo,
@@ -146,6 +182,7 @@ export const EquipamentosPage: React.FC = () => {
         observacoes: observacoes.trim(),
         cadastrado_por_id: usuarioData?.id,
         cadastrado_por_nome: usuarioData?.nome || "Sistema",
+        imagem_url: uploadedImageUrl || undefined,
       });
 
       setPatrimonio("");
@@ -153,6 +190,8 @@ export const EquipamentosPage: React.FC = () => {
       setModelo("");
       setNumeroSerie("");
       setObservacoes("");
+      setImageFile(null);
+      setImagePreview(null);
       setIsModalOpen(false);
       await carregarDados();
     } catch (err) {
@@ -172,6 +211,8 @@ export const EquipamentosPage: React.FC = () => {
     setEditSetorId(eq.setor_id);
     setEditStatus(eq.status);
     setEditDataAlocacao(parseDateToISOString(eq.data_alocacao));
+    setEditImageFile(null);
+    setEditImagePreview(eq.imagem_url || null);
     setIsEditModalOpen(true);
   };
 
@@ -189,14 +230,33 @@ export const EquipamentosPage: React.FC = () => {
     try {
       const sectorChanged = editSetorId !== editingEquipamento.setor_id;
 
-      const payload: Partial<Omit<Equipamento, "id" | "criado_em">> = {
+      let finalImageUrl: any = editingEquipamento.imagem_url || "";
+      const previousStorageUrl = editingEquipamento.imagem_url;
+
+      if (editImageFile) {
+        // Novo arquivo selecionado: faz upload do novo arquivo
+        finalImageUrl = await uploadImagemEquipamento(editImageFile);
+        // Exclui a imagem antiga do Storage
+        if (previousStorageUrl) {
+          await excluirImagemEquipamentoStorage(previousStorageUrl);
+        }
+      } else if (!editImagePreview) {
+        // Usuário removeu a imagem (preview está nulo): usa deleteField() do Firestore
+        finalImageUrl = deleteField();
+        if (previousStorageUrl) {
+          await excluirImagemEquipamentoStorage(previousStorageUrl);
+        }
+      }
+
+      const payload: Record<string, any> = {
         patrimonio: editPatrimonio.trim(),
         tipo: editTipo,
         marca: editMarca.trim(),
         modelo: editModelo.trim(),
         numero_serie: editNumeroSerie.trim(),
         setor_id: editSetorId,
-        status: editStatus as any,
+        status: editStatus,
+        imagem_url: finalImageUrl,
       };
 
       if (sectorChanged) {
@@ -211,6 +271,8 @@ export const EquipamentosPage: React.FC = () => {
       await atualizarEquipamento(editingEquipamento.id, payload);
       setIsEditModalOpen(false);
       setEditingEquipamento(null);
+      setEditImageFile(null);
+      setEditImagePreview(null);
       await carregarDados();
     } catch (err) {
       console.error("Erro ao editar equipamento:", err);
@@ -228,7 +290,7 @@ export const EquipamentosPage: React.FC = () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await excluirEquipamento(deleteTarget.id);
+      await excluirEquipamento(deleteTarget.id, deleteTarget.imagem_url);
       setIsDeleteAlertOpen(false);
       setDeleteTarget(null);
       await carregarDados();
@@ -477,6 +539,7 @@ export const EquipamentosPage: React.FC = () => {
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-900/60 text-slate-400 uppercase text-xs font-semibold border-b border-slate-700">
                 <tr>
+                  <th className="px-4 py-3 text-center">Foto</th>
                   <th className="px-6 py-3">Patrimônio</th>
                   <th className="px-6 py-3">Tipo / Descrição</th>
                   <th className="px-6 py-3">Setor Atual</th>
@@ -492,7 +555,7 @@ export const EquipamentosPage: React.FC = () => {
                 {equipamentosFiltrados.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-6 py-8 text-center text-slate-400"
                     >
                       Nenhum equipamento encontrado.
@@ -504,6 +567,32 @@ export const EquipamentosPage: React.FC = () => {
                       key={eq.id}
                       className="hover:bg-slate-750 transition-colors"
                     >
+                      <td className="px-4 py-4 text-center">
+                        {eq.imagem_url ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedEnlargedImage(eq.imagem_url!)}
+                            className="relative group w-11 h-11 rounded-lg overflow-hidden border border-slate-700 hover:border-blue-500 transition-all inline-block align-middle shadow-sm"
+                            title="Ver imagem em tamanho real"
+                          >
+                            <img
+                              src={eq.imagem_url}
+                              alt={eq.modelo}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-slate-950/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <Eye className="w-3.5 h-3.5 text-white" />
+                            </div>
+                          </button>
+                        ) : (
+                          <div
+                            className="w-11 h-11 rounded-lg border border-slate-700/60 bg-slate-900/60 flex items-center justify-center text-slate-600 mx-auto"
+                            title="Sem imagem cadastrada"
+                          >
+                            <ImageIcon className="w-5 h-5 text-slate-600" />
+                          </div>
+                        )}
+                      </td>
                       <td className="px-6 py-4 font-bold text-white font-mono">
                         {eq.patrimonio || "—"}
                       </td>
@@ -691,6 +780,48 @@ export const EquipamentosPage: React.FC = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  Foto / Imagem do Equipamento (Opcional)
+                </label>
+                {imagePreview ? (
+                  <div className="relative group w-full h-36 rounded-lg overflow-hidden border border-slate-700 bg-slate-900 flex items-center justify-center">
+                    <img
+                      src={imagePreview}
+                      alt="Preview do Equipamento"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageFile(null);
+                        setImagePreview(null);
+                      }}
+                      className="absolute top-2 right-2 p-1.5 bg-red-600/90 hover:bg-red-600 text-white rounded-full transition-colors shadow-md"
+                      title="Remover foto"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-lg cursor-pointer bg-slate-900/50 hover:bg-slate-900 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-3 pb-3 text-slate-400">
+                      <Upload className="w-6 h-6 mb-1 text-slate-400" />
+                      <p className="text-xs font-medium text-slate-300">
+                        Clique para selecionar uma foto
+                      </p>
+                      <p className="text-[11px] text-slate-500">PNG, JPG, WEBP até 5MB</p>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageChange(e, false)}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-700">
@@ -894,6 +1025,48 @@ export const EquipamentosPage: React.FC = () => {
                 </p>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">
+                  Foto / Imagem do Equipamento (Opcional)
+                </label>
+                {editImagePreview ? (
+                  <div className="relative group w-full h-36 rounded-lg overflow-hidden border border-slate-700 bg-slate-900 flex items-center justify-center">
+                    <img
+                      src={editImagePreview}
+                      alt="Preview do Equipamento"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditImageFile(null);
+                        setEditImagePreview(null);
+                      }}
+                      className="absolute top-2 right-2 p-1.5 bg-red-600/90 hover:bg-red-600 text-white rounded-full transition-colors shadow-md"
+                      title="Remover foto"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-lg cursor-pointer bg-slate-900/50 hover:bg-slate-900 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-3 pb-3 text-slate-400">
+                      <Upload className="w-6 h-6 mb-1 text-slate-400" />
+                      <p className="text-xs font-medium text-slate-300">
+                        Clique para selecionar uma nova foto
+                      </p>
+                      <p className="text-[11px] text-slate-500">PNG, JPG, WEBP até 5MB</p>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageChange(e, true)}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-700">
                 <button
                   type="button"
@@ -967,6 +1140,33 @@ export const EquipamentosPage: React.FC = () => {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Visualização Expandida da Foto */}
+      {selectedEnlargedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm cursor-pointer"
+          onClick={() => setSelectedEnlargedImage(null)}
+        >
+          <div
+            className="relative max-w-2xl max-h-[85vh] p-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={selectedEnlargedImage}
+              alt="Foto do Equipamento"
+              className="max-w-full max-h-[80vh] object-contain rounded-lg mx-auto"
+            />
+            <button
+              type="button"
+              onClick={() => setSelectedEnlargedImage(null)}
+              className="absolute top-4 right-4 p-2 bg-slate-800/80 hover:bg-slate-700 text-white rounded-full transition-colors shadow-lg"
+              title="Fechar"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
       )}

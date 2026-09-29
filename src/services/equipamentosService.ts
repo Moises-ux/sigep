@@ -13,10 +13,29 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import type { Equipamento, EquipamentoStatus } from "../types";
-import { db } from "./firebase";
+import { db, storage } from "./firebase";
 
 const EQUIPAMENTOS_COLLECTION = "equipamentos";
+
+export const uploadImagemEquipamento = async (file: File): Promise<string> => {
+  const timestamp = Date.now();
+  const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const storageRef = ref(storage, `equipamentos/${timestamp}_${sanitizedFileName}`);
+  const snapshot = await uploadBytes(storageRef, file);
+  return await getDownloadURL(snapshot.ref);
+};
+
+export const excluirImagemEquipamentoStorage = async (url: string): Promise<void> => {
+  if (!url) return;
+  try {
+    const fileRef = ref(storage, url);
+    await deleteObject(fileRef);
+  } catch (err) {
+    console.warn("Erro ao excluir imagem do storage:", err);
+  }
+};
 
 export const getEquipamentos = async (): Promise<Equipamento[]> => {
   const q = query(
@@ -91,13 +110,17 @@ export const incrementarManutencoesConcluidas = async (
 
 export const atualizarEquipamento = async (
   id: string,
-  dados: Partial<Omit<Equipamento, "id" | "criado_em">>
+  dados: Record<string, any>
 ): Promise<void> => {
   const docRef = doc(db, EQUIPAMENTOS_COLLECTION, id);
   await updateDoc(docRef, dados);
 };
 
-export const excluirEquipamento = async (id: string): Promise<void> => {
+export const excluirEquipamento = async (id: string, imagemUrl?: string): Promise<void> => {
+  if (imagemUrl) {
+    await excluirImagemEquipamentoStorage(imagemUrl);
+  }
   const docRef = doc(db, EQUIPAMENTOS_COLLECTION, id);
   await deleteDoc(docRef);
 };
+
