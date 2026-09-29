@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/set-state-in-effect */
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   AlertCircle,
   Building2,
@@ -9,13 +12,12 @@ import {
   Lock,
   Wrench,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import type { Equipamento, OrdemServico, OSPrioridade, Setor } from "../types";
+import React, { useEffect, useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { getEquipamentosBySetor } from "../services/equipamentosService";
 import { editarOS } from "../services/osService";
 import { getSetores } from "../services/setoresService";
-import { getEquipamentosBySetor } from "../services/equipamentosService";
-import { useAuth } from "../contexts/AuthContext";
+import type { Equipamento, OrdemServico, OSPrioridade, Setor } from "../types";
 import { calcularPrazoRetornoDefault } from "../utils/prazoUtils";
 
 interface EditarOSModalProps {
@@ -81,7 +83,8 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
       setPrioridade(os.prioridade || "baixa");
       setJustificativaPrioridade(os.justificativa_prioridade || "");
       setPrevisaoRetorno(
-        os.previsao_retorno || calcularPrazoRetornoDefault(os.prioridade || "baixa")
+        os.previsao_retorno ||
+          calcularPrazoRetornoDefault(os.prioridade || "baixa")
       );
       setObservacaoPrazo("");
       setError(null);
@@ -115,7 +118,10 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
   if (!isOpen || !os) return null;
 
   const isPosCriada = os.status !== "CRIADA";
-  const isPriorityDisabled = os.status === "CONCLUIDA" || os.status === "CANCELADA" || os.status === "ARQUIVADA";
+  const isPriorityDisabled =
+    os.status === "CONCLUIDA" ||
+    os.status === "CANCELADA" ||
+    os.status === "ARQUIVADA";
   const isPrazoDisabled =
     os.status === "RETORNADA" ||
     os.status === "CONCLUIDA" ||
@@ -134,8 +140,13 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
       return;
     }
 
-    if ((prioridade === "alta" || prioridade === "critica") && !justificativaPrioridade.trim()) {
-      setError("A justificativa é obrigatória para prioridades Alta ou Crítica/Urgente.");
+    if (
+      (prioridade === "alta" || prioridade === "critica") &&
+      !justificativaPrioridade.trim()
+    ) {
+      setError(
+        "A justificativa é obrigatória para prioridades Alta ou Crítica/Urgente."
+      );
       return;
     }
 
@@ -147,19 +158,29 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
     try {
       await editarOS({
         osId: os.id,
-        equipamento: (!isPosCriada && eqSelecionado) ? {
-          id: eqSelecionado.id,
-          patrimonio: eqSelecionado.patrimonio,
-          tipo: eqSelecionado.tipo,
-          marca: eqSelecionado.marca,
-          modelo: eqSelecionado.modelo,
-          setor_id: eqSelecionado.setor_id,
-        } : undefined,
+        equipamento:
+          !isPosCriada && eqSelecionado
+            ? {
+                id: eqSelecionado.id,
+                patrimonio: eqSelecionado.patrimonio,
+                tipo: eqSelecionado.tipo,
+                marca: eqSelecionado.marca,
+                modelo: eqSelecionado.modelo,
+                setor_id: eqSelecionado.setor_id,
+              }
+            : undefined,
         descricaoDefeito: defeitoRelatado.trim(),
         prioridade,
-        justificativaPrioridade: (prioridade === "alta" || prioridade === "critica") ? justificativaPrioridade.trim() : undefined,
-        previsaoRetorno: previsaoRetorno.trim() ? previsaoRetorno.trim() : undefined,
-        observacaoPrazo: observacaoPrazo.trim() ? observacaoPrazo.trim() : undefined,
+        justificativaPrioridade:
+          prioridade === "alta" || prioridade === "critica"
+            ? justificativaPrioridade.trim()
+            : undefined,
+        previsaoRetorno: previsaoRetorno.trim()
+          ? previsaoRetorno.trim()
+          : undefined,
+        observacaoPrazo: observacaoPrazo.trim()
+          ? observacaoPrazo.trim()
+          : undefined,
         usuarioId: usuarioData.id,
         usuarioNome: usuarioData.nome,
       });
@@ -179,9 +200,15 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
       <Card className="max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <h3 className="text-base font-bold text-foreground flex items-center gap-2 font-mono m-0">
-            <Edit3 className="w-5 h-5 text-blue-400 font-sans" /> Editar Ordem de Serviço ({os.numero_os})
+            <Edit3 className="w-5 h-5 text-blue-400 font-sans" /> Editar Ordem
+            de Serviço ({os.numero_os})
           </h3>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="h-8 w-8 p-0"
+          >
             ✕
           </Button>
         </div>
@@ -190,7 +217,9 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
           <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2.5 text-xs text-amber-400">
             <Lock className="w-4 h-4 shrink-0 mt-0.5" />
             <span>
-              <strong>Campos Bloqueados:</strong> Como esta OS já passou da etapa de abertura ({os.status}), os campos de setor e equipamento estão fixados e não podem ser alterados.
+              <strong>Campos Bloqueados:</strong> Como esta OS já passou da
+              etapa de abertura ({os.status}), os campos de setor e equipamento
+              estão fixados e não podem ser alterados.
             </span>
           </div>
         )}
@@ -250,12 +279,15 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
               >
                 {equipamentos.length === 0 ? (
                   <option value={os.equipamento.id}>
-                    {os.equipamento.tipo} - {os.equipamento.marca} {os.equipamento.modelo} (Patrimônio: {os.equipamento.patrimonio})
+                    {os.equipamento.tipo} - {os.equipamento.marca}{" "}
+                    {os.equipamento.modelo} (Patrimônio:{" "}
+                    {os.equipamento.patrimonio})
                   </option>
                 ) : (
                   equipamentos.map((eq) => (
                     <option key={eq.id} value={eq.id}>
-                      {eq.tipo} - {eq.marca} {eq.modelo} (Patrimônio: {eq.patrimonio})
+                      {eq.tipo} - {eq.marca} {eq.modelo} (Patrimônio:{" "}
+                      {eq.patrimonio})
                     </option>
                   ))
                 )}
@@ -269,7 +301,9 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
               <AlertCircle className="w-4 h-4 text-blue-400" />
               <span>Nível de Atenção / Prioridade</span>
               {isPriorityDisabled && (
-                <span className="text-[10px] text-amber-400 font-normal lowercase font-sans">(bloqueado para o status atual)</span>
+                <span className="text-[10px] text-amber-400 font-normal lowercase font-sans">
+                  (bloqueado para o status atual)
+                </span>
               )}
             </label>
             <select
@@ -307,7 +341,7 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
               disabled={isPrazoDisabled}
               value={previsaoRetorno}
               onChange={(e) => setPrevisaoRetorno(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-background border border-input rounded-xl text-xs font-mono text-foreground focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full px-3.5 py-2.5 bg-background border border-input rounded-xl text-xs font-mono text-foreground focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed [color-scheme:dark]"
             />
             {!isPrazoDisabled && (
               <input

@@ -24,7 +24,7 @@ import type {
   AceiteFuncionarioInfo, 
   HistoricoObservacao 
 } from '../types';
-import { atualizarStatusEquipamento } from './equipamentosService';
+import { atualizarStatusEquipamento, incrementarManutencoesConcluidas } from './equipamentosService';
 
 const OS_COLLECTION = 'ordens_servico';
 
@@ -223,7 +223,17 @@ export const confirmarRecebimento = async (dados: {
     atualizado_em: serverTimestamp(),
   });
 
-  if (dados.equipamentoId) {
+  let eqId = dados.equipamentoId;
+  if (!eqId) {
+    const osSnap = await getDoc(docRef);
+    if (osSnap.exists()) {
+      eqId = osSnap.data().equipamento?.id;
+    }
+  }
+
+  if (eqId) {
+    await incrementarManutencoesConcluidas(eqId, 'operacional');
+  } else if (dados.equipamentoId) {
     await atualizarStatusEquipamento(dados.equipamentoId, 'operacional');
   }
 };

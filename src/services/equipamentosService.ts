@@ -9,7 +9,8 @@ import {
   query, 
   where, 
   orderBy, 
-  serverTimestamp 
+  serverTimestamp,
+  increment
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Equipamento, EquipamentoStatus } from '../types';
@@ -50,6 +51,7 @@ export const criarEquipamento = async (
 ): Promise<string> => {
   const docRef = await addDoc(collection(db, EQUIPAMENTOS_COLLECTION), {
     ...equipamento,
+    total_manutencoes_concluidas: 0,
     criado_em: serverTimestamp(),
   });
   return docRef.id;
@@ -61,6 +63,20 @@ export const atualizarStatusEquipamento = async (
 ): Promise<void> => {
   const docRef = doc(db, EQUIPAMENTOS_COLLECTION, id);
   await updateDoc(docRef, { status });
+};
+
+export const incrementarManutencoesConcluidas = async (
+  id: string,
+  novoStatus?: EquipamentoStatus
+): Promise<void> => {
+  const docRef = doc(db, EQUIPAMENTOS_COLLECTION, id);
+  const payload: Record<string, any> = {
+    total_manutencoes_concluidas: increment(1),
+  };
+  if (novoStatus) {
+    payload.status = novoStatus;
+  }
+  await updateDoc(docRef, payload);
 };
 
 export const atualizarEquipamento = async (

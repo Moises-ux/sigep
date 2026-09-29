@@ -1,6 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable react-hooks/set-state-in-effect */
-import React, { useEffect, useState } from "react";
 import {
   AlertCircle,
   Building2,
@@ -22,23 +21,24 @@ import {
   Wrench,
   XCircle,
 } from "lucide-react";
+import React, { useEffect, useState } from "react";
 
-import { OSStepper } from "../components/OSStepper";
-import { SkeletonTable } from "../components/SkeletonLoader";
-import { StatusBadge } from "../components/StatusBadge";
-import { PriorityBadge } from "../components/PriorityBadge";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { EditarOSModal } from "../components/EditarOSModal";
+import { OSStepper } from "../components/OSStepper";
+import { PriorityBadge } from "../components/PriorityBadge";
+import { SkeletonTable } from "../components/SkeletonLoader";
+import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  atualizarPrioridadeOS,
   atualizarPrazoRetornoOS,
+  atualizarPrioridadeOS,
   cancelarOS,
   confirmarRecebimento,
-  getOSById,
   getOrdensServico,
   getOrdensServicoBySetor,
   getOrdensServicoByTecnico,
+  getOSById,
   hardDeleteOS,
   restaurarOS,
   softDeleteOS,
@@ -51,6 +51,8 @@ import {
   getObsPrazoRetorno,
 } from "../utils/prazoUtils";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -58,6 +60,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -66,9 +69,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 
 export const DashboardPage: React.FC = () => {
   const { usuarioData } = useAuth();
@@ -99,7 +99,8 @@ export const DashboardPage: React.FC = () => {
   const canEditPriority = isTecnico;
 
   const [editandoPrioridade, setEditandoPrioridade] = useState(false);
-  const [novaPrioridadeVal, setNovaPrioridadeVal] = useState<OSPrioridade>("baixa");
+  const [novaPrioridadeVal, setNovaPrioridadeVal] =
+    useState<OSPrioridade>("baixa");
   const [novaJustificativaVal, setNovaJustificativaVal] = useState("");
   const [submittingPrioridade, setSubmittingPrioridade] = useState(false);
   const [erroPrioridade, setErroPrioridade] = useState<string | null>(null);
@@ -108,24 +109,30 @@ export const DashboardPage: React.FC = () => {
   const [osParaEditar, setOsParaEditar] = useState<OrdemServico | null>(null);
 
   // Modal de Soft Delete (Arquivamento)
-  const [osParaArquivar, setOsParaArquivar] = useState<OrdemServico | null>(null);
+  const [osParaArquivar, setOsParaArquivar] = useState<OrdemServico | null>(
+    null
+  );
   const [motivoArquivamento, setMotivoArquivamento] = useState("");
   const [submittingArquivamento, setSubmittingArquivamento] = useState(false);
 
   // Modal de Hard Delete (Exclusão Física Definitiva)
-  const [osParaExcluirHard, setOsParaExcluirHard] = useState<OrdemServico | null>(null);
+  const [osParaExcluirHard, setOsParaExcluirHard] =
+    useState<OrdemServico | null>(null);
   const [submittingExclusaoHard, setSubmittingExclusaoHard] = useState(false);
 
   // Modal / Form para Alteração Direta do Prazo de Retorno
-  const [osParaAlterarPrazo, setOsParaAlterarPrazo] = useState<OrdemServico | null>(null);
+  const [osParaAlterarPrazo, setOsParaAlterarPrazo] =
+    useState<OrdemServico | null>(null);
   const [novoPrazoVal, setNovoPrazoVal] = useState("");
   const [obsAlteracaoPrazoVal, setObsAlteracaoPrazoVal] = useState("");
-  const [submittingAlteracaoPrazo, setSubmittingAlteracaoPrazo] = useState(false);
+  const [submittingAlteracaoPrazo, setSubmittingAlteracaoPrazo] =
+    useState(false);
 
   const handleAbrirModalPrazo = (os: OrdemServico) => {
     setOsParaAlterarPrazo(os);
     setNovoPrazoVal(
-      os.previsao_retorno || calcularPrazoRetornoDefault(os.prioridade || "baixa")
+      os.previsao_retorno ||
+        calcularPrazoRetornoDefault(os.prioridade || "baixa")
     );
     setObsAlteracaoPrazoVal("");
   };
@@ -159,7 +166,9 @@ export const DashboardPage: React.FC = () => {
   };
 
   // Modal de Restauração de OS (Admin)
-  const [osParaRestaurar, setOsParaRestaurar] = useState<OrdemServico | null>(null);
+  const [osParaRestaurar, setOsParaRestaurar] = useState<OrdemServico | null>(
+    null
+  );
   const [submittingRestauracao, setSubmittingRestauracao] = useState(false);
 
   const carregarDados = async () => {
@@ -391,16 +400,24 @@ export const DashboardPage: React.FC = () => {
     return setorFiltro === "TODOS" || o.equipamento.setor_id === setorFiltro;
   });
 
-  const ordensAtivas = ordensPorSetor.filter((o) => !o.deletado && o.status !== "ARQUIVADA");
-  const ordensArquivadas = ordensPorSetor.filter((o) => o.deletado || o.status === "ARQUIVADA");
+  const ordensAtivas = ordensPorSetor.filter(
+    (o) => !o.deletado && o.status !== "ARQUIVADA"
+  );
+  const ordensArquivadas = ordensPorSetor.filter(
+    (o) => o.deletado || o.status === "ARQUIVADA"
+  );
 
   const totalOS = ordensAtivas.length;
   const criadasOS = ordensAtivas.filter((o) => o.status === "CRIADA").length;
   const assistenciaOS = ordensAtivas.filter(
     (o) => o.status === "EM_ASSISTENCIA"
   ).length;
-  const retornadasOS = ordensAtivas.filter((o) => o.status === "RETORNADA").length;
-  const concluidasOS = ordensAtivas.filter((o) => o.status === "CONCLUIDA").length;
+  const retornadasOS = ordensAtivas.filter(
+    (o) => o.status === "RETORNADA"
+  ).length;
+  const concluidasOS = ordensAtivas.filter(
+    (o) => o.status === "CONCLUIDA"
+  ).length;
   const arquivadasOSCount = ordensArquivadas.length;
 
   const ordensFiltradas = ordensPorSetor.filter((o) => {
@@ -412,11 +429,14 @@ export const DashboardPage: React.FC = () => {
     }
 
     const atendePrioridade =
-      prioridadeFiltro === "TODOS" || (o.prioridade || "baixa") === prioridadeFiltro;
+      prioridadeFiltro === "TODOS" ||
+      (o.prioridade || "baixa") === prioridadeFiltro;
     const atendeBusca =
       o.numero_os.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.descricao_defeito.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (o.equipamento.patrimonio || "").toLowerCase().includes(searchTerm.toLowerCase());
+      (o.equipamento.patrimonio || "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
     return atendePrioridade && atendeBusca;
   });
 
@@ -436,12 +456,16 @@ export const DashboardPage: React.FC = () => {
             Monitor de Assistência Técnica
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Acompanhamento em tempo real do ciclo de reparos dos equipamentos municipais.
+            Acompanhamento em tempo real do ciclo de reparos dos equipamentos
+            municipais.
           </p>
         </div>
 
         {usuarioData?.papel === "solicitante" && (
-          <Badge variant="outline" className="px-3 py-1.5 gap-2 text-xs font-normal">
+          <Badge
+            variant="outline"
+            className="px-3 py-1.5 gap-2 text-xs font-normal"
+          >
             <Building2 className="w-4 h-4 text-primary" />
             <span className="text-muted-foreground">Setor Ativo:</span>
             <strong className="text-foreground font-mono">
@@ -581,10 +605,22 @@ export const DashboardPage: React.FC = () => {
             {[
               { id: "TODOS", label: "Todas", count: totalOS },
               { id: "CRIADA", label: "Criadas", count: criadasOS },
-              { id: "EM_ASSISTENCIA", label: "Em Reparo", count: assistenciaOS },
+              {
+                id: "EM_ASSISTENCIA",
+                label: "Em Reparo",
+                count: assistenciaOS,
+              },
               { id: "RETORNADA", label: "Retornadas", count: retornadasOS },
               { id: "CONCLUIDA", label: "Concluídas", count: concluidasOS },
-              ...(isAdmin ? [{ id: "ARQUIVADA", label: "Lixeira / Arquivadas", count: arquivadasOSCount }] : []),
+              ...(isAdmin
+                ? [
+                    {
+                      id: "ARQUIVADA",
+                      label: "Lixeira / Arquivadas",
+                      count: arquivadasOSCount,
+                    },
+                  ]
+                : []),
             ].map((st) => (
               <Button
                 key={st.id}
@@ -619,10 +655,13 @@ export const DashboardPage: React.FC = () => {
               Nenhuma Ordem de Serviço Encontrada
             </h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-              Não há registros com os filtros aplicados. Altere o termo de pesquisa ou selecione outro setor / status.
+              Não há registros com os filtros aplicados. Altere o termo de
+              pesquisa ou selecione outro setor / status.
             </p>
           </div>
-          {(statusFiltro !== "TODOS" || setorFiltro !== "TODOS" || searchTerm !== "") && (
+          {(statusFiltro !== "TODOS" ||
+            setorFiltro !== "TODOS" ||
+            searchTerm !== "") && (
             <Button variant="link" size="sm" onClick={limparFiltros}>
               Limpar Filtros
             </Button>
@@ -631,7 +670,9 @@ export const DashboardPage: React.FC = () => {
       ) : (
         <Card>
           <CardHeader className="px-6 py-4 border-b border-border">
-            <CardTitle className="text-base font-bold">Listagem de OS</CardTitle>
+            <CardTitle className="text-base font-bold">
+              Listagem de OS
+            </CardTitle>
             <CardDescription className="text-xs">
               Exibindo {ordensFiltradas.length} ordens de serviço
             </CardDescription>
@@ -644,7 +685,9 @@ export const DashboardPage: React.FC = () => {
                   <TableHead className="w-[130px]">Prioridade</TableHead>
                   <TableHead className="w-[160px]">Status</TableHead>
                   <TableHead>Equipamento & Defeito</TableHead>
-                  <TableHead className="min-w-[200px]">Patrimônio / Setor</TableHead>
+                  <TableHead className="min-w-[200px]">
+                    Patrimônio / Setor
+                  </TableHead>
                   <TableHead className="w-[150px]">Data de Criação</TableHead>
                   <TableHead className="text-right w-[140px]">Ações</TableHead>
                 </TableRow>
@@ -653,7 +696,10 @@ export const DashboardPage: React.FC = () => {
                 {ordensFiltradas.map((os) => (
                   <TableRow key={os.id} className="hover:bg-muted/50">
                     <TableCell className="font-mono text-xs font-bold text-foreground">
-                      <Badge variant="outline" className="font-mono text-xs font-bold">
+                      <Badge
+                        variant="outline"
+                        className="font-mono text-xs font-bold"
+                      >
                         {os.numero_os}
                       </Badge>
                     </TableCell>
@@ -671,7 +717,8 @@ export const DashboardPage: React.FC = () => {
                         <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                           <HardDrive className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                           <span>
-                            {os.equipamento.tipo} {os.equipamento.marca} {os.equipamento.modelo}
+                            {os.equipamento.tipo} {os.equipamento.marca}{" "}
+                            {os.equipamento.modelo}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground line-clamp-1">
@@ -683,7 +730,10 @@ export const DashboardPage: React.FC = () => {
                     <TableCell>
                       <div className="text-xs space-y-1">
                         <div className="text-muted-foreground font-mono">
-                          Pat: <strong className="text-foreground">{os.equipamento.patrimonio}</strong>
+                          Pat:{" "}
+                          <strong className="text-foreground">
+                            {os.equipamento.patrimonio}
+                          </strong>
                         </div>
                         <div className="text-foreground font-medium leading-tight whitespace-normal">
                           {getSetorInfo(os.equipamento.setor_id)}
@@ -697,12 +747,16 @@ export const DashboardPage: React.FC = () => {
                           <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                           <span>{formatarData(os.criado_em)}</span>
                         </div>
-                        {isAdmin && (os.deletado || os.status === "ARQUIVADA") && os.deletado_em && (
-                          <div className="flex items-center gap-1 text-[11px] text-red-400 font-sans font-medium">
-                            <Trash2 className="w-3 h-3 shrink-0" />
-                            <span>Excluído: {formatarData(os.deletado_em)}</span>
-                          </div>
-                        )}
+                        {isAdmin &&
+                          (os.deletado || os.status === "ARQUIVADA") &&
+                          os.deletado_em && (
+                            <div className="flex items-center gap-1 text-[11px] text-red-400 font-sans font-medium">
+                              <Trash2 className="w-3 h-3 shrink-0" />
+                              <span>
+                                Excluído: {formatarData(os.deletado_em)}
+                              </span>
+                            </div>
+                          )}
                       </div>
                     </TableCell>
 
@@ -719,22 +773,27 @@ export const DashboardPage: React.FC = () => {
                           <span className="hidden sm:inline">Detalhes</span>
                         </Button>
 
-                        {isTecnico && !os.deletado && os.status !== "CONCLUIDA" && os.status !== "CANCELADA" && os.status !== "ARQUIVADA" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setOsParaEditar(os)}
-                            className="h-8 px-2 gap-1 text-xs text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
-                            title="Editar dados da OS"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                            <span className="hidden md:inline">Editar</span>
-                          </Button>
-                        )}
+                        {isTecnico &&
+                          !os.deletado &&
+                          os.status !== "CONCLUIDA" &&
+                          os.status !== "CANCELADA" &&
+                          os.status !== "ARQUIVADA" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setOsParaEditar(os)}
+                              className="h-8 px-2 gap-1 text-xs text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
+                              title="Editar dados da OS"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span className="hidden md:inline">Editar</span>
+                            </Button>
+                          )}
 
                         {os.status === "RETORNADA" &&
                           !os.deletado &&
-                          (usuarioData?.papel === "solicitante" || isTecnico) && (
+                          (usuarioData?.papel === "solicitante" ||
+                            isTecnico) && (
                             <Button
                               size="sm"
                               onClick={() => setOsParaReceber(os)}
@@ -745,20 +804,23 @@ export const DashboardPage: React.FC = () => {
                             </Button>
                           )}
 
-                        {isSupervisor && os.status === "CRIADA" && !os.deletado && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setOsParaArquivar(os)}
-                            className="h-8 px-2 gap-1 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
-                            title="Excluir OS (Soft Delete)"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span className="hidden md:inline">Excluir</span>
-                          </Button>
-                        )}
+                        {isSupervisor &&
+                          os.status === "CRIADA" &&
+                          !os.deletado && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setOsParaArquivar(os)}
+                              className="h-8 px-2 gap-1 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                              title="Excluir OS (Soft Delete)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span className="hidden md:inline">Excluir</span>
+                            </Button>
+                          )}
 
-                        {(os.status === "CRIADA" || os.status === "EM_ASSISTENCIA") &&
+                        {(os.status === "CRIADA" ||
+                          os.status === "EM_ASSISTENCIA") &&
                           !os.deletado &&
                           (isAdmin || os.tecnico_id === usuarioData?.id) && (
                             <Button
@@ -772,18 +834,21 @@ export const DashboardPage: React.FC = () => {
                             </Button>
                           )}
 
-                        {isAdmin && (os.deletado || os.status === "ARQUIVADA") && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setOsParaRestaurar(os)}
-                            className="h-8 px-2 gap-1 text-xs text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
-                            title="Restaurar OS da Lixeira"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            <span className="hidden md:inline">Restaurar</span>
-                          </Button>
-                        )}
+                        {isAdmin &&
+                          (os.deletado || os.status === "ARQUIVADA") && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setOsParaRestaurar(os)}
+                              className="h-8 px-2 gap-1 text-xs text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                              title="Restaurar OS da Lixeira"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span className="hidden md:inline">
+                                Restaurar
+                              </span>
+                            </Button>
+                          )}
 
                         {isAdmin && (
                           <Button
@@ -816,7 +881,7 @@ export const DashboardPage: React.FC = () => {
                   <span className="font-mono text-base font-bold tracking-wider">
                     {osSelecionada.numero_os}
                   </span>
-                  
+
                   <div className="flex items-center gap-1.5">
                     <PriorityBadge prioridade={osSelecionada.prioridade} />
 
@@ -830,8 +895,12 @@ export const DashboardPage: React.FC = () => {
                         type="button"
                         onClick={() => {
                           setEditandoPrioridade(!editandoPrioridade);
-                          setNovaPrioridadeVal(osSelecionada.prioridade || "baixa");
-                          setNovaJustificativaVal(osSelecionada.justificativa_prioridade || "");
+                          setNovaPrioridadeVal(
+                            osSelecionada.prioridade || "baixa"
+                          );
+                          setNovaJustificativaVal(
+                            osSelecionada.justificativa_prioridade || ""
+                          );
                           setErroPrioridade(null);
                         }}
                         className="h-6 px-2 text-[10px] gap-1 font-medium cursor-pointer"
@@ -891,120 +960,134 @@ export const DashboardPage: React.FC = () => {
               osSelecionada.status !== "CONCLUIDA" &&
               osSelecionada.status !== "CANCELADA" &&
               osSelecionada.status !== "ARQUIVADA" && (
-              <form onSubmit={handleSalvarPrioridade} className="bg-muted/80 p-4 rounded-xl border border-border space-y-3 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase font-mono text-foreground">
-                    Alteração de Nível de Prioridade
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    type="button"
-                    onClick={() => setEditandoPrioridade(false)}
-                    className="h-6 text-[11px] px-2"
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-
-                {erroPrioridade && (
-                  <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 p-2 rounded-lg">
-                    {erroPrioridade}
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1 uppercase font-mono">
-                      Novo Nível de Prioridade
-                    </label>
-                    <select
-                      value={novaPrioridadeVal}
-                      onChange={(e) => setNovaPrioridadeVal(e.target.value as OSPrioridade)}
-                      className="w-full h-9 px-3 bg-background border border-input rounded-md text-xs font-mono text-foreground focus:ring-1 focus:ring-ring outline-none"
+                <form
+                  onSubmit={handleSalvarPrioridade}
+                  className="bg-muted/80 p-4 rounded-xl border border-border space-y-3 shadow-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase font-mono text-foreground">
+                      Alteração de Nível de Prioridade
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      onClick={() => setEditandoPrioridade(false)}
+                      className="h-6 text-[11px] px-2"
                     >
-                      <option value="baixa">Baixa</option>
-                      <option value="media">Média</option>
-                      <option value="alta">Alta</option>
-                      <option value="critica">Crítica/Urgente</option>
-                    </select>
+                      Cancelar
+                    </Button>
                   </div>
 
-                  {(novaPrioridadeVal === "alta" || novaPrioridadeVal === "critica") && (
-                    <div>
-                      <label className="block text-[11px] font-semibold text-amber-400 mb-1 uppercase font-mono">
-                        Justificativa da Prioridade *
-                      </label>
-                      <textarea
-                        rows={2}
-                        required
-                        value={novaJustificativaVal}
-                        onChange={(e) => setNovaJustificativaVal(e.target.value)}
-                        placeholder="Descreva a justificativa para definir a OS como Alta ou Crítica..."
-                        className="w-full p-2.5 bg-background border border-amber-500/40 rounded-md text-xs text-foreground focus:ring-1 focus:ring-amber-500 outline-none"
-                      />
+                  {erroPrioridade && (
+                    <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 p-2 rounded-lg">
+                      {erroPrioridade}
                     </div>
                   )}
-                </div>
 
-                <div className="flex justify-end gap-2 pt-1">
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={submittingPrioridade}
-                    className="h-8 text-xs gap-1.5"
-                  >
-                    {submittingPrioridade ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      "Confirmar e Salvar Prioridade"
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-muted-foreground mb-1 uppercase font-mono">
+                        Novo Nível de Prioridade
+                      </label>
+                      <select
+                        value={novaPrioridadeVal}
+                        onChange={(e) =>
+                          setNovaPrioridadeVal(e.target.value as OSPrioridade)
+                        }
+                        className="w-full h-9 px-3 bg-background border border-input rounded-md text-xs font-mono text-foreground focus:ring-1 focus:ring-ring outline-none"
+                      >
+                        <option value="baixa">Baixa</option>
+                        <option value="media">Média</option>
+                        <option value="alta">Alta</option>
+                        <option value="critica">Crítica/Urgente</option>
+                      </select>
+                    </div>
+
+                    {(novaPrioridadeVal === "alta" ||
+                      novaPrioridadeVal === "critica") && (
+                      <div>
+                        <label className="block text-[11px] font-semibold text-amber-400 mb-1 uppercase font-mono">
+                          Justificativa da Prioridade *
+                        </label>
+                        <textarea
+                          rows={2}
+                          required
+                          value={novaJustificativaVal}
+                          onChange={(e) =>
+                            setNovaJustificativaVal(e.target.value)
+                          }
+                          placeholder="Descreva a justificativa para definir a OS como Alta ou Crítica..."
+                          className="w-full p-2.5 bg-background border border-amber-500/40 rounded-md text-xs text-foreground focus:ring-1 focus:ring-amber-500 outline-none"
+                        />
+                      </div>
                     )}
-                  </Button>
-                </div>
-              </form>
-            )}
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={submittingPrioridade}
+                      className="h-8 text-xs gap-1.5"
+                    >
+                      {submittingPrioridade ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        "Confirmar e Salvar Prioridade"
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              )}
 
             <div className="bg-muted/50 p-4 rounded-xl border border-border">
               <OSStepper os={osSelecionada} />
             </div>
 
             <div className="space-y-4 text-xs">
-              {isAdmin && (osSelecionada.deletado || osSelecionada.status === "ARQUIVADA") && (
-                <div className="bg-red-500/10 p-4 rounded-xl border border-red-500/20 space-y-2">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-[10px] uppercase font-mono font-semibold text-red-400 flex items-center gap-1.5">
-                      <Trash2 className="w-3.5 h-3.5" />
-                      OS Excluída / Arquivada pelo Supervisor
-                    </span>
-                    <Button
-                      size="sm"
-                      onClick={() => setOsParaRestaurar(osSelecionada)}
-                      className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white gap-1"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Restaurar OS</span>
-                    </Button>
+              {isAdmin &&
+                (osSelecionada.deletado ||
+                  osSelecionada.status === "ARQUIVADA") && (
+                  <div className="bg-red-500/10 p-4 rounded-xl border border-red-500/20 space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-[10px] uppercase font-mono font-semibold text-red-400 flex items-center gap-1.5">
+                        <Trash2 className="w-3.5 h-3.5" />
+                        OS Excluída / Arquivada pelo Supervisor
+                      </span>
+                      <Button
+                        size="sm"
+                        onClick={() => setOsParaRestaurar(osSelecionada)}
+                        className="h-7 text-xs bg-emerald-600 hover:bg-emerald-500 text-white gap-1"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Restaurar OS</span>
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {osSelecionada.deletado_em && (
+                        <div>
+                          <span className="text-muted-foreground">
+                            Data da Exclusão:
+                          </span>{" "}
+                          <strong className="text-foreground font-mono">
+                            {formatarData(osSelecionada.deletado_em)}
+                          </strong>
+                        </div>
+                      )}
+                      {osSelecionada.deletado_por && (
+                        <div>
+                          <span className="text-muted-foreground">
+                            Excluído por:
+                          </span>{" "}
+                          <strong className="text-foreground">
+                            {osSelecionada.deletado_por.nome}
+                          </strong>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    {osSelecionada.deletado_em && (
-                      <div>
-                        <span className="text-muted-foreground">Data da Exclusão:</span>{" "}
-                        <strong className="text-foreground font-mono">
-                          {formatarData(osSelecionada.deletado_em)}
-                        </strong>
-                      </div>
-                    )}
-                    {osSelecionada.deletado_por && (
-                      <div>
-                        <span className="text-muted-foreground">Excluído por:</span>{" "}
-                        <strong className="text-foreground">
-                          {osSelecionada.deletado_por.nome}
-                        </strong>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                )}
 
               <div className="bg-card p-4 rounded-xl border border-border space-y-1">
                 <span className="text-[10px] uppercase font-mono font-semibold text-muted-foreground">
@@ -1013,7 +1096,8 @@ export const DashboardPage: React.FC = () => {
                 <p className="text-foreground text-sm font-medium m-0">
                   {osSelecionada.descricao_defeito}
                 </p>
-                {(osSelecionada.prioridade === "alta" || osSelecionada.prioridade === "critica") &&
+                {(osSelecionada.prioridade === "alta" ||
+                  osSelecionada.prioridade === "critica") &&
                   osSelecionada.justificativa_prioridade && (
                     <div className="mt-2.5 pt-2 border-t border-border/40">
                       <span className="text-[10px] uppercase font-mono font-semibold text-amber-400">
@@ -1027,9 +1111,13 @@ export const DashboardPage: React.FC = () => {
                 {osSelecionada.prioridade_alterada_por && (
                   <div className="mt-2.5 pt-2 border-t border-border/40 text-[11px] text-muted-foreground font-mono flex flex-wrap items-center gap-1.5">
                     <span>Prioridade alterada por:</span>
-                    <strong className="text-foreground">{osSelecionada.prioridade_alterada_por.nome}</strong>
+                    <strong className="text-foreground">
+                      {osSelecionada.prioridade_alterada_por.nome}
+                    </strong>
                     {osSelecionada.prioridade_alterada_em && (
-                      <span>em {formatarData(osSelecionada.prioridade_alterada_em)}</span>
+                      <span>
+                        em {formatarData(osSelecionada.prioridade_alterada_em)}
+                      </span>
                     )}
                   </div>
                 )}
@@ -1037,9 +1125,13 @@ export const DashboardPage: React.FC = () => {
                   <div className="mt-2.5 pt-2 border-t border-border/40 text-[11px] text-emerald-400 font-mono flex flex-wrap items-center gap-1.5">
                     <RotateCcw className="w-3.5 h-3.5 shrink-0" />
                     <span>Restaurado por:</span>
-                    <strong className="text-foreground">{osSelecionada.restaurado_por.nome}</strong>
+                    <strong className="text-foreground">
+                      {osSelecionada.restaurado_por.nome}
+                    </strong>
                     {osSelecionada.restaurado_em && (
-                      <span>em {formatarData(osSelecionada.restaurado_em)}</span>
+                      <span>
+                        em {formatarData(osSelecionada.restaurado_em)}
+                      </span>
                     )}
                   </div>
                 )}
@@ -1053,7 +1145,9 @@ export const DashboardPage: React.FC = () => {
                   {osSelecionada.criado_em && (
                     <p className="m-0 font-mono">
                       <span>Data de Criação:</span>{" "}
-                      <strong className="text-foreground">{formatarData(osSelecionada.criado_em)}</strong>
+                      <strong className="text-foreground">
+                        {formatarData(osSelecionada.criado_em)}
+                      </strong>
                     </p>
                   )}
                   <div className="mt-2 pt-2 border-t border-border space-y-1.5">
@@ -1100,7 +1194,9 @@ export const DashboardPage: React.FC = () => {
                   </span>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <span className="text-muted-foreground">Data do Check-in:</span>{" "}
+                      <span className="text-muted-foreground">
+                        Data do Check-in:
+                      </span>{" "}
                       <strong className="text-foreground font-mono">
                         {formatarData(osSelecionada.checkin.data)}
                       </strong>
@@ -1121,18 +1217,24 @@ export const DashboardPage: React.FC = () => {
                     )}
                     {osSelecionada.checkin.os_externa && (
                       <div>
-                        <span className="text-muted-foreground">Nº OS Externa:</span>{" "}
+                        <span className="text-muted-foreground">
+                          Nº OS Externa:
+                        </span>{" "}
                         {osSelecionada.checkin.os_externa}
                       </div>
                     )}
                     {osSelecionada.checkin.valor_orcamento && (
                       <div>
-                        <span className="text-muted-foreground">Orçamento:</span> R${" "}
-                        {osSelecionada.checkin.valor_orcamento.toFixed(2)}
+                        <span className="text-muted-foreground">
+                          Orçamento:
+                        </span>{" "}
+                        R$ {osSelecionada.checkin.valor_orcamento.toFixed(2)}
                       </div>
                     )}
                     <div>
-                      <span className="text-muted-foreground">Responsável pelo Check-in:</span>{" "}
+                      <span className="text-muted-foreground">
+                        Responsável pelo Check-in:
+                      </span>{" "}
                       {osSelecionada.checkin.supervisor_nome}
                     </div>
                   </div>
@@ -1152,13 +1254,17 @@ export const DashboardPage: React.FC = () => {
                   </span>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <span className="text-muted-foreground">Data do Check-out:</span>{" "}
+                      <span className="text-muted-foreground">
+                        Data do Check-out:
+                      </span>{" "}
                       <strong className="text-foreground font-mono">
                         {formatarData(osSelecionada.checkout.data)}
                       </strong>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Responsável pelo Check-out:</span>{" "}
+                      <span className="text-muted-foreground">
+                        Responsável pelo Check-out:
+                      </span>{" "}
                       <strong className="text-foreground">
                         {osSelecionada.checkout.supervisor_nome}
                       </strong>
@@ -1166,7 +1272,9 @@ export const DashboardPage: React.FC = () => {
                   </div>
                   {osSelecionada.checkout.observacoes && (
                     <p className="mt-1 m-0 text-xs text-muted-foreground">
-                      <span className="font-semibold text-purple-300">Observações:</span>{" "}
+                      <span className="font-semibold text-purple-300">
+                        Observações:
+                      </span>{" "}
                       {osSelecionada.checkout.observacoes}
                     </p>
                   )}
@@ -1180,13 +1288,17 @@ export const DashboardPage: React.FC = () => {
                   </span>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <span className="text-muted-foreground">Data de Recebimento:</span>{" "}
+                      <span className="text-muted-foreground">
+                        Data de Recebimento:
+                      </span>{" "}
                       <strong className="text-foreground font-mono">
                         {formatarData(osSelecionada.aceite_funcionario.data)}
                       </strong>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Servidor Responsável:</span>{" "}
+                      <span className="text-muted-foreground">
+                        Servidor Responsável:
+                      </span>{" "}
                       <strong className="text-foreground">
                         {osSelecionada.aceite_funcionario.funcionario_nome}
                       </strong>
@@ -1194,50 +1306,59 @@ export const DashboardPage: React.FC = () => {
                   </div>
                   {osSelecionada.aceite_funcionario.observacoes && (
                     <p className="mt-1 m-0 text-xs text-muted-foreground">
-                      <span className="font-semibold text-emerald-300">Observações:</span>{" "}
+                      <span className="font-semibold text-emerald-300">
+                        Observações:
+                      </span>{" "}
                       {osSelecionada.aceite_funcionario.observacoes}
                     </p>
                   )}
                 </div>
               )}
 
-              {osSelecionada.status === "CANCELADA" && (() => {
-                const eventoCancelamento = osSelecionada.historico_observacoes?.find(
-                  (h) => h.acao === "Cancelamento de OS"
-                );
-                return (
-                  <div className="bg-red-500/5 p-4 rounded-xl border border-red-500/20 space-y-2">
-                    <span className="text-[10px] uppercase font-mono font-semibold text-red-400 flex items-center gap-1.5">
-                      <XCircle className="w-3.5 h-3.5" />
-                      OS Cancelada
-                    </span>
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      {eventoCancelamento ? (
-                        <>
-                          <p className="m-0">
-                            <span>Cancelada por:</span>{" "}
-                            <strong className="text-foreground">
-                              {eventoCancelamento.usuario_nome}
-                            </strong>
-                          </p>
-                          {eventoCancelamento.observacao && (
-                            <p className="m-0 mt-1">
-                              <span className="text-red-400 font-semibold">Motivo:</span>{" "}
-                              <span className="text-foreground">
-                                {eventoCancelamento.observacao.replace(/^Motivo:\s*/i, "")}
-                              </span>
+              {osSelecionada.status === "CANCELADA" &&
+                (() => {
+                  const eventoCancelamento =
+                    osSelecionada.historico_observacoes?.find(
+                      (h) => h.acao === "Cancelamento de OS"
+                    );
+                  return (
+                    <div className="bg-red-500/5 p-4 rounded-xl border border-red-500/20 space-y-2">
+                      <span className="text-[10px] uppercase font-mono font-semibold text-red-400 flex items-center gap-1.5">
+                        <XCircle className="w-3.5 h-3.5" />
+                        OS Cancelada
+                      </span>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        {eventoCancelamento ? (
+                          <>
+                            <p className="m-0">
+                              <span>Cancelada por:</span>{" "}
+                              <strong className="text-foreground">
+                                {eventoCancelamento.usuario_nome}
+                              </strong>
                             </p>
-                          )}
-                        </>
-                      ) : (
-                        <p className="m-0 text-muted-foreground">
-                          Motivo não informado.
-                        </p>
-                      )}
+                            {eventoCancelamento.observacao && (
+                              <p className="m-0 mt-1">
+                                <span className="text-red-400 font-semibold">
+                                  Motivo:
+                                </span>{" "}
+                                <span className="text-foreground">
+                                  {eventoCancelamento.observacao.replace(
+                                    /^Motivo:\s*/i,
+                                    ""
+                                  )}
+                                </span>
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="m-0 text-muted-foreground">
+                            Motivo não informado.
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })()}
+                  );
+                })()}
             </div>
 
             <div className="flex justify-end pt-3 border-t border-border">
@@ -1375,7 +1496,11 @@ export const DashboardPage: React.FC = () => {
         onClose={() => setOsParaEditar(null)}
         onSuccess={async () => {
           await carregarDados();
-          if (osSelecionada && osParaEditar && osSelecionada.id === osParaEditar.id) {
+          if (
+            osSelecionada &&
+            osParaEditar &&
+            osSelecionada.id === osParaEditar.id
+          ) {
             const updated = await getOSById(osSelecionada.id);
             if (updated) setOsSelecionada(updated);
           }
@@ -1397,7 +1522,9 @@ export const DashboardPage: React.FC = () => {
         description={
           <div className="space-y-3">
             <p className="m-0">
-              Esta ação realiza a <strong>exclusão lógica (Soft Delete)</strong>. A OS será removida da listagem padrão e seu status passará para <strong>Arquivada</strong>.
+              Esta ação realiza a <strong>exclusão lógica (Soft Delete)</strong>
+              . A OS será removida da listagem padrão e seu status passará para{" "}
+              <strong>Arquivada</strong>.
             </p>
             <div>
               <label className="block text-[11px] font-semibold uppercase text-muted-foreground mb-1 font-mono">
@@ -1431,7 +1558,9 @@ export const DashboardPage: React.FC = () => {
             </p>
             <p className="m-0">
               Você está prestes a remover definitivamente a Ordem de Serviço{" "}
-              <strong className="font-mono text-foreground">{osParaExcluirHard?.numero_os}</strong>{" "}
+              <strong className="font-mono text-foreground">
+                {osParaExcluirHard?.numero_os}
+              </strong>{" "}
               do banco de dados Firestore (`deleteDoc`).
             </p>
             <p className="m-0 text-[11px] text-muted-foreground">
@@ -1454,11 +1583,15 @@ export const DashboardPage: React.FC = () => {
           <div className="space-y-2">
             <p className="m-0">
               Você está prestes a restaurar a Ordem de Serviço{" "}
-              <strong className="font-mono text-foreground">{osParaRestaurar?.numero_os}</strong>{" "}
+              <strong className="font-mono text-foreground">
+                {osParaRestaurar?.numero_os}
+              </strong>{" "}
               da lixeira.
             </p>
             <p className="m-0 text-[11px] text-muted-foreground">
-              Ao restaurar, o status retornará para <strong>CRIADA</strong>, a OS voltará para a listagem principal e o equipamento será redefinido para status de manutenção.
+              Ao restaurar, o status retornará para <strong>CRIADA</strong>, a
+              OS voltará para a listagem principal e o equipamento será
+              redefinido para status de manutenção.
             </p>
           </div>
         }
@@ -1470,7 +1603,8 @@ export const DashboardPage: React.FC = () => {
           <Card className="max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-border pb-3">
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2 font-mono m-0">
-                <Calendar className="w-5 h-5 text-blue-400 font-sans" /> Alterar Prazo de Retorno ({osParaAlterarPrazo.numero_os})
+                <Calendar className="w-5 h-5 text-blue-400 font-sans" /> Alterar
+                Prazo de Retorno ({osParaAlterarPrazo.numero_os})
               </h3>
               <Button
                 variant="ghost"
@@ -1482,7 +1616,10 @@ export const DashboardPage: React.FC = () => {
               </Button>
             </div>
 
-            <form onSubmit={handleConfirmarAlteracaoPrazo} className="space-y-4 text-xs">
+            <form
+              onSubmit={handleConfirmarAlteracaoPrazo}
+              className="space-y-4 text-xs"
+            >
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1.5 font-mono">
                   Novo Prazo Previsto de Retorno *
@@ -1492,7 +1629,7 @@ export const DashboardPage: React.FC = () => {
                   required
                   value={novoPrazoVal}
                   onChange={(e) => setNovoPrazoVal(e.target.value)}
-                  className="w-full px-3 py-2 bg-background border border-input rounded-xl text-xs font-mono text-foreground focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                  className="w-full px-3 py-2 bg-background border border-input rounded-xl text-xs font-mono text-foreground focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer [color-scheme:dark]"
                 />
               </div>
 

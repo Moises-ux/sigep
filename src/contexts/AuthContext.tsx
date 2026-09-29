@@ -14,7 +14,7 @@ interface AuthContextType {
   currentUser: User | null;
   usuarioData: Usuario | null;
   loading: boolean;
-  signIn: (email: string, pass: string) => Promise<void>;
+  signIn: (email: string, pass: string) => Promise<Usuario>;
   signOutUser: () => Promise<void>;
   refreshUsuarioData: () => Promise<void>;
 }
@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return unsubscribe;
   }, []);
 
-  const signIn = async (email: string, pass: string) => {
+  const signIn = async (email: string, pass: string): Promise<Usuario> => {
     const credential = await signInWithEmailAndPassword(auth, email, pass);
     const data = await getUsuarioById(credential.user.uid);
 
@@ -78,6 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         "Acesso não autorizado ou inativo. Contate o Administrador de TI."
       );
     }
+    return data;
   };
 
   const signOutUser = async () => {

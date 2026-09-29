@@ -41,6 +41,7 @@ export const cadastrarNovoUsuarioPorAdmin = async (
       setor_id,
       telefone,
       ativo: true,
+      primeiro_acesso: true,
     });
 
     await secondarySignOut(secondaryAuth);

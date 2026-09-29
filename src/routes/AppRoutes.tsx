@@ -10,6 +10,7 @@ import { EquipamentosPage } from '../pages/EquipamentosPage';
 import { AdminUsuariosPage } from '../pages/AdminUsuariosPage';
 import { AdminSetoresPage } from '../pages/AdminSetoresPage';
 import { AdminAssistenciasPage } from '../pages/AdminAssistenciasPage';
+import { AlterarSenhaPrimeiroAcessoPage } from '../pages/AlterarSenhaPrimeiroAcessoPage';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -17,8 +18,12 @@ export const AppRoutes: React.FC = () => {
       {/* Rota Pública */}
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Rotas Protegidas no MainLayout */}
+      {/* Rotas Protegidas */}
       <Route element={<ProtectedRoute />}>
+        {/* Rota de Troca Obrigatória de Senha (Sem MainLayout) */}
+        <Route path="/alterar-senha-primeiro-acesso" element={<AlterarSenhaPrimeiroAcessoPage />} />
+
+        {/* Rotas dentro do Layout Principal */}
         <Route element={<MainLayout />}>
           {/* Acessível por todos os perfis autenticados */}
           <Route path="/dashboard" element={<DashboardPage />} />

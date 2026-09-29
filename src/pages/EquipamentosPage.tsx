@@ -1,3 +1,5 @@
+/* eslint-disable prefer-const */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-hooks/set-state-in-effect */
 import {
@@ -11,6 +13,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Wrench,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -29,7 +32,8 @@ export const EquipamentosPage: React.FC = () => {
   const [setores, setSetores] = useState<Setor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSetorFiltro, setSelectedSetorFiltro] = useState<string>("TODOS");
+  const [selectedSetorFiltro, setSelectedSetorFiltro] =
+    useState<string>("TODOS");
   const [selectedTipoFiltro, setSelectedTipoFiltro] = useState<string>("TODOS");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -43,7 +47,8 @@ export const EquipamentosPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
 
   // Edit & Delete state
-  const [editingEquipamento, setEditingEquipamento] = useState<Equipamento | null>(null);
+  const [editingEquipamento, setEditingEquipamento] =
+    useState<Equipamento | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Equipamento | null>(null);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -429,12 +434,21 @@ export const EquipamentosPage: React.FC = () => {
                 className="bg-transparent text-xs text-slate-200 focus:outline-none cursor-pointer min-w-0 flex-1 w-full sm:w-auto sm:max-w-[220px] truncate"
               >
                 <option value="TODOS" className="bg-slate-900 text-slate-200">
-                  Todos os Tipos ({equipamentos.filter(e => selectedSetorFiltro === "TODOS" || e.setor_id === selectedSetorFiltro).length})
+                  Todos os Tipos (
+                  {
+                    equipamentos.filter(
+                      (e) =>
+                        selectedSetorFiltro === "TODOS" ||
+                        e.setor_id === selectedSetorFiltro
+                    ).length
+                  }
+                  )
                 </option>
                 {tipologias.map((t) => {
                   const count = equipamentos.filter((e) => {
                     const matchesSetor =
-                      selectedSetorFiltro === "TODOS" || e.setor_id === selectedSetorFiltro;
+                      selectedSetorFiltro === "TODOS" ||
+                      e.setor_id === selectedSetorFiltro;
                     return matchesSetor && e.tipo === t;
                   }).length;
 
@@ -467,6 +481,9 @@ export const EquipamentosPage: React.FC = () => {
                   <th className="px-6 py-3">Tipo / Descrição</th>
                   <th className="px-6 py-3">Setor Atual</th>
                   <th className="px-6 py-3">Cadastrado Por / Data</th>
+                  <th className="px-6 py-3 text-center">
+                    Manutenções Concluídas
+                  </th>
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3 text-center">Ações</th>
                 </tr>
@@ -475,7 +492,7 @@ export const EquipamentosPage: React.FC = () => {
                 {equipamentosFiltrados.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-6 py-8 text-center text-slate-400"
                     >
                       Nenhum equipamento encontrado.
@@ -523,6 +540,15 @@ export const EquipamentosPage: React.FC = () => {
                         <div className="text-[11px] text-slate-400 font-mono mt-0.5">
                           {formatDateTime(eq.criado_em)}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-center font-mono">
+                        <span
+                          className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                          title="Total de manutenções concluídas neste equipamento"
+                        >
+                          <Wrench className="w-3.5 h-3.5" />
+                          <span>{eq.total_manutencoes_concluidas || 0}</span>
+                        </span>
                       </td>
                       <td className="px-6 py-4">{getStatusBadge(eq.status)}</td>
                       <td className="px-6 py-4">
@@ -602,7 +628,9 @@ export const EquipamentosPage: React.FC = () => {
                     <option value="HD/SSD">HD / SSD</option>
                     <option value="Filtro de Linha">Filtro de Linha</option>
                     <option value="Tinta/Toner">Tinta / Toner</option>
-                    <option value="Fonte de Alimentação">Fonte de Alimentação</option>
+                    <option value="Fonte de Alimentação">
+                      Fonte de Alimentação
+                    </option>
                   </select>
                 </div>
                 <div>
@@ -696,8 +724,7 @@ export const EquipamentosPage: React.FC = () => {
           <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-slate-700 pb-3">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <Edit2 className="w-5 h-5 text-blue-400" /> Editar
-                Equipamento
+                <Edit2 className="w-5 h-5 text-blue-400" /> Editar Equipamento
               </h3>
               <button
                 onClick={() => {
@@ -743,7 +770,9 @@ export const EquipamentosPage: React.FC = () => {
                     <option value="HD/SSD">HD / SSD</option>
                     <option value="Filtro de Linha">Filtro de Linha</option>
                     <option value="Tinta/Toner">Tinta / Toner</option>
-                    <option value="Fonte de Alimentação">Fonte de Alimentação</option>
+                    <option value="Fonte de Alimentação">
+                      Fonte de Alimentação
+                    </option>
                   </select>
                 </div>
                 <div>
@@ -819,26 +848,39 @@ export const EquipamentosPage: React.FC = () => {
                 </div>
               </div>
 
-              {editingEquipamento && editSetorId !== editingEquipamento.setor_id && (
-                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs text-blue-300 space-y-1">
-                  <div className="font-semibold flex items-center gap-1.5 text-blue-200">
-                    <ArrowRight className="w-3.5 h-3.5 text-blue-400" /> Alteração de Setor Detectada
+              {editingEquipamento &&
+                editSetorId !== editingEquipamento.setor_id && (
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs text-blue-300 space-y-1">
+                    <div className="font-semibold flex items-center gap-1.5 text-blue-200">
+                      <ArrowRight className="w-3.5 h-3.5 text-blue-400" />{" "}
+                      Alteração de Setor Detectada
+                    </div>
+                    <div>
+                      Setor Anterior:{" "}
+                      <span className="font-mono text-slate-300">
+                        {getSetorNome(editingEquipamento.setor_id)}
+                      </span>
+                    </div>
+                    <div>
+                      Novo Setor:{" "}
+                      <span className="font-mono text-emerald-400">
+                        {getSetorNome(editSetorId)}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 pt-1">
+                      O setor anterior será salvo em{" "}
+                      <code className="text-amber-300 font-mono">
+                        setor_anterior
+                      </code>{" "}
+                      e a data de alocação será atualizada.
+                    </p>
                   </div>
-                  <div>
-                    Setor Anterior: <span className="font-mono text-slate-300">{getSetorNome(editingEquipamento.setor_id)}</span>
-                  </div>
-                  <div>
-                    Novo Setor: <span className="font-mono text-emerald-400">{getSetorNome(editSetorId)}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 pt-1">
-                    O setor anterior será salvo em <code className="text-amber-300 font-mono">setor_anterior</code> e a data de alocação será atualizada.
-                  </p>
-                </div>
-              )}
+                )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 uppercase mb-1 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-blue-400" /> Data de Alocação
+                  <Calendar className="w-3.5 h-3.5 text-blue-400" /> Data de
+                  Alocação
                 </label>
                 <input
                   type="datetime-local"
@@ -847,7 +889,8 @@ export const EquipamentosPage: React.FC = () => {
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none font-mono"
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Atualizada automaticamente ao alterar o setor, ou informe uma data específica.
+                  Atualizada automaticamente ao alterar o setor, ou informe uma
+                  data específica.
                 </p>
               </div>
 

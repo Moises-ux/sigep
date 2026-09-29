@@ -30,8 +30,15 @@ export const LoginPage: React.FC = () => {
     setSubmitting(true);
 
     try {
-      await signIn(email.trim(), password);
-      navigate("/dashboard");
+      const user = await signIn(email.trim(), password);
+      if (
+        user.primeiro_acesso &&
+        ["supervisor", "tecnico", "solicitante"].includes(user.papel)
+      ) {
+        navigate("/alterar-senha-primeiro-acesso");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err: any) {
       console.error("Erro de autenticação:", err);
       if (err.message) {

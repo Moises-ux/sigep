@@ -50,8 +50,19 @@ service cloud.firestore {
       // Qualquer usuário autenticado pode ler perfis para exibição de nomes
       allow read: if isAuthenticated();
 
-      // Somente administradores podem criar, alterar ou desativar usuários
-      allow create, update, delete: if isAdmin();
+      // Somente administradores podem criar ou excluir contas de usuários
+      allow create, delete: if isAdmin();
+
+      // Atualização de dados de usuários:
+      // 1. Administradores possuem acesso completo para alterar qualquer perfil.
+      // 2. Usuários ativos podem atualizar o próprio documento (ex: primeiro acesso / telefone),
+      //    desde que não alterem o papel de acesso, status ativo ou setor de lotação.
+      allow update: if isAdmin() || (
+        isUserActive() && request.auth.uid == userId &&
+        request.resource.data.papel == resource.data.papel &&
+        request.resource.data.ativo == resource.data.ativo &&
+        request.resource.data.setor_id == resource.data.setor_id
+      );
     }
 
     // ===============================================================

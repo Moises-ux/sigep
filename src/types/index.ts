@@ -21,6 +21,7 @@ export interface Usuario {
   setor_id: string;
   telefone?: string;
   ativo: boolean;
+  primeiro_acesso?: boolean;
   criado_em?: any;
 }
 
@@ -55,6 +56,7 @@ export interface Equipamento {
   data_alocacao?: any;
   status: EquipamentoStatus;
   observacoes?: string;
+  total_manutencoes_concluidas?: number;
   cadastrado_por_id?: string;
   cadastrado_por_nome?: string;
   criado_em?: any;
