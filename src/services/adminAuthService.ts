@@ -1,4 +1,15 @@
-import serviceAccount from '../../scripts/serviceAccountKey.json';
+// Carrega serviceAccountKey.json opcionalmente via import.meta.glob para evitar erro "Module not found" no Vite quando o arquivo não existir.
+const serviceAccountFiles = import.meta.glob<{ default: Record<string, string> }>(
+  '../../scripts/serviceAccountKey.json',
+  { eager: true }
+);
+
+const serviceAccountKeyPath = '../../scripts/serviceAccountKey.json';
+const serviceAccount = serviceAccountFiles[serviceAccountKeyPath]?.default || {
+  private_key: import.meta.env.VITE_FIREBASE_ADMIN_PRIVATE_KEY || "",
+  client_email: import.meta.env.VITE_FIREBASE_ADMIN_CLIENT_EMAIL || "",
+  project_id: import.meta.env.VITE_FIREBASE_PROJECT_ID || import.meta.env.VITE_FIREBASE_ADMIN_PROJECT_ID || "",
+};
 
 function base64UrlEncode(str: string): string {
   return btoa(str).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
@@ -14,6 +25,12 @@ function base64UrlEncodeBuffer(buf: ArrayBuffer): string {
 }
 
 async function getAdminAccessToken(): Promise<string> {
+  if (!serviceAccount.private_key || !serviceAccount.client_email) {
+    throw new Error(
+      "Credenciais de administração do Firebase não encontradas. Certifique-se de ter o arquivo scripts/serviceAccountKey.json ou configurar as variáveis VITE_FIREBASE_ADMIN_*."
+    );
+  }
+
   const pem = serviceAccount.private_key
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
     .replace(/-----END PRIVATE KEY-----/, "")
@@ -70,6 +87,10 @@ async function getAdminAccessToken(): Promise<string> {
  * Exclui a conta de autenticação de qualquer usuário no Firebase Auth usando a API de Administração.
  */
 export const excluirContaAuthPorAdmin = async (uid: string): Promise<void> => {
+  if (!serviceAccount.project_id) {
+    throw new Error("ID do projeto Firebase (project_id) não configurado.");
+  }
+
   const token = await getAdminAccessToken();
   const res = await fetch(
     `https://identitytoolkit.googleapis.com/v1/projects/${serviceAccount.project_id}/accounts:delete`,
