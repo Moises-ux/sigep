@@ -325,11 +325,19 @@ export const atualizarPrazoRetornoOS = async (dados: {
     observacao: obsText,
   };
 
-  await updateDoc(docRef, {
+  const updatePayload: Record<string, any> = {
     previsao_retorno: dados.novoPrazo.trim(),
     atualizado_em: serverTimestamp(),
     historico_observacoes: arrayUnion(eventoHistorico),
-  });
+  };
+
+  if (dados.observacao?.trim()) {
+    updatePayload.observacao_prazo_retorno = dados.observacao.trim();
+  } else {
+    updatePayload.observacao_prazo_retorno = deleteField();
+  }
+
+  await updateDoc(docRef, updatePayload);
 };
 
 export const editarOS = async (dados: {
@@ -386,8 +394,12 @@ export const editarOS = async (dados: {
   if (dados.previsaoRetorno !== undefined) {
     if (dados.previsaoRetorno.trim()) {
       payload.previsao_retorno = dados.previsaoRetorno.trim();
+      if (dados.observacaoPrazo?.trim()) {
+        payload.observacao_prazo_retorno = dados.observacaoPrazo.trim();
+      }
     } else {
       payload.previsao_retorno = deleteField();
+      payload.observacao_prazo_retorno = deleteField();
     }
   }
   if (dados.prioridade !== undefined) {

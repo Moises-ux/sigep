@@ -131,6 +131,7 @@ export interface OrdemServico {
   assistencia_tecnica?: string;
   valor_orcamento?: number;
   previsao_retorno?: string;
+  observacao_prazo_retorno?: string;
   historico_observacoes?: HistoricoObservacao[];
   atualizado_por?: UsuarioAuditInfo;
   deletado?: boolean;

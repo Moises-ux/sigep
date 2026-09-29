@@ -48,6 +48,7 @@ import type { OrdemServico, OSPrioridade, Setor } from "../types";
 import {
   calcularPrazoRetornoDefault,
   formatarPrazoRetorno,
+  getObsPrazoRetorno,
 } from "../utils/prazoUtils";
 
 import {
@@ -1055,27 +1056,39 @@ export const DashboardPage: React.FC = () => {
                       <strong className="text-foreground">{formatarData(osSelecionada.criado_em)}</strong>
                     </p>
                   )}
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                    <p className="m-0 font-mono text-xs flex items-center gap-1.5">
-                      <Calendar className="w-4 h-4 text-blue-400" />
-                      <span>Prazo Previsto de Retorno:</span>{" "}
-                      <strong className="text-amber-400 font-semibold font-mono">
-                        {formatarPrazoRetorno(osSelecionada.previsao_retorno)}
-                      </strong>
-                    </p>
-                    {isTecnico &&
-                      (osSelecionada.status === "CRIADA" ||
-                        osSelecionada.status === "EM_ASSISTENCIA") && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleAbrirModalPrazo(osSelecionada)}
-                          className="h-7 px-2.5 text-[11px] gap-1.5 text-blue-400 border-blue-500/30 hover:bg-blue-500/10 font-mono"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                          <span>Alterar Prazo</span>
-                        </Button>
-                      )}
+                  <div className="mt-2 pt-2 border-t border-border space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="m-0 font-mono text-xs flex items-center gap-1.5">
+                        <Calendar className="w-4 h-4 text-blue-400" />
+                        <span>Prazo Previsto de Retorno:</span>{" "}
+                        <strong className="text-amber-400 font-semibold font-mono">
+                          {formatarPrazoRetorno(osSelecionada.previsao_retorno)}
+                        </strong>
+                      </p>
+                      {isTecnico &&
+                        (osSelecionada.status === "CRIADA" ||
+                          osSelecionada.status === "EM_ASSISTENCIA") && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAbrirModalPrazo(osSelecionada)}
+                            className="h-7 px-2.5 text-[11px] gap-1.5 text-blue-400 border-blue-500/30 hover:bg-blue-500/10 font-mono"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Alterar Prazo</span>
+                          </Button>
+                        )}
+                    </div>
+                    {getObsPrazoRetorno(osSelecionada) && (
+                      <div className="p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-300 space-y-0.5">
+                        <span className="font-semibold text-[11px] font-mono text-blue-400 block uppercase tracking-wider">
+                          Observação sobre o Prazo:
+                        </span>
+                        <p className="m-0 text-slate-200">
+                          {getObsPrazoRetorno(osSelecionada)}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
