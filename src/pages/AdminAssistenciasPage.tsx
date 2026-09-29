@@ -23,6 +23,7 @@ import {
   getAssistenciasTecnicas,
 } from "../services/assistenciasService";
 import type { AssistenciaTecnica } from "../types";
+import { formatarTelefone } from "../utils/maskUtils";
 
 import {
   Card,
@@ -94,7 +95,7 @@ export const AdminAssistenciasPage: React.FC = () => {
   const handleOpenEditModal = (item: AssistenciaTecnica) => {
     setEditingId(item.id);
     setNome(item.nome);
-    setTelefone(item.telefone);
+    setTelefone(formatarTelefone(item.telefone));
     setEmail(item.email || "");
     setEndereco(item.endereco || "");
     setAtivo(item.ativo);
@@ -253,7 +254,7 @@ export const AdminAssistenciasPage: React.FC = () => {
                       <TableCell className="font-mono text-xs text-foreground">
                         <div className="flex items-center gap-2">
                           <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                          <span>{item.telefone}</span>
+                          <span>{formatarTelefone(item.telefone)}</span>
                         </div>
                       </TableCell>
 
@@ -357,8 +358,9 @@ export const AdminAssistenciasPage: React.FC = () => {
                   type="text"
                   required
                   value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
+                  onChange={(e) => setTelefone(formatarTelefone(e.target.value))}
                   placeholder="Ex: (83) 98888-7777"
+                  maxLength={15}
                   className="text-xs"
                 />
               </div>

@@ -23,6 +23,7 @@ import {
   salvarPerfilUsuario,
 } from "../services/usuariosService";
 import type { Role, Setor, Usuario } from "../types";
+import { formatarTelefone } from "../utils/maskUtils";
 
 import {
   Card,
@@ -123,7 +124,7 @@ export const AdminUsuariosPage: React.FC = () => {
     setEditEmail(u.email);
     setEditPapel(u.papel);
     setEditSetorId(u.setor_id);
-    setEditTelefone(u.telefone || "");
+    setEditTelefone(formatarTelefone(u.telefone || ""));
     setEditAtivo(u.ativo);
   };
 
@@ -580,8 +581,9 @@ export const AdminUsuariosPage: React.FC = () => {
                 <Input
                   type="text"
                   value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
+                  onChange={(e) => setTelefone(formatarTelefone(e.target.value))}
                   placeholder="(83) 99999-9999"
+                  maxLength={15}
                   className="text-xs"
                 />
               </div>
@@ -712,8 +714,9 @@ export const AdminUsuariosPage: React.FC = () => {
                   <Input
                     type="text"
                     value={editTelefone}
-                    onChange={(e) => setEditTelefone(e.target.value)}
+                    onChange={(e) => setEditTelefone(formatarTelefone(e.target.value))}
                     placeholder="(83) 99999-9999"
+                    maxLength={15}
                     className="text-xs"
                   />
                 </div>
@@ -832,7 +835,7 @@ export const AdminUsuariosPage: React.FC = () => {
               Tem certeza que deseja excluir permanentemente o usuário <strong className="text-foreground font-semibold">{usuarioParaExcluir.nome}</strong> (<span className="font-mono text-foreground">{usuarioParaExcluir.email}</span>)?
             </p>
             <p className="text-xs text-destructive font-medium leading-relaxed m-0">
-              Esta ação removerá o registro do usuário e não poderá ser desfeita.
+              Esta ação removerá a conta e o documento do usuário no banco de dados e não poderá ser desfeita.
             </p>
 
             <div className="flex justify-end gap-3 pt-3 border-t border-border">

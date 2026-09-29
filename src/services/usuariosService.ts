@@ -10,7 +10,9 @@ import {
   orderBy, 
   serverTimestamp 
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { deleteUser } from 'firebase/auth';
+import { db, auth } from './firebase';
+import { excluirContaAuthPorAdmin } from './adminAuthService';
 import type { Usuario } from '../types';
 
 const USUARIOS_COLLECTION = 'usuarios';
@@ -51,6 +53,19 @@ export const salvarPerfilUsuario = async (
 };
 
 export const deletarUsuario = async (id: string): Promise<void> => {
+  // 1. Excluir a conta de autenticação do usuário no Firebase Auth via API Admin
+  await excluirContaAuthPorAdmin(id);
+
+  // 2. Se for o próprio usuário atualmente autenticado, excluir sessão local do Auth
+  if (auth.currentUser && auth.currentUser.uid === id) {
+    try {
+      await deleteUser(auth.currentUser);
+    } catch (authErr) {
+      console.warn("Erro ao excluir sessão local do Firebase Auth:", authErr);
+    }
+  }
+
+  // 3. Excluir o documento do usuário no Firestore após a exclusão da conta Auth
   const docRef = doc(db, USUARIOS_COLLECTION, id);
   await deleteDoc(docRef);
 };
