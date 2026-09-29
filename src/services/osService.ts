@@ -84,6 +84,23 @@ export const getOrdensServicoBySetor = async (setor_id: string): Promise<OrdemSe
   });
 };
 
+export const getOrdensServicoByTecnico = async (tecnico_id: string): Promise<OrdemServico[]> => {
+  const q = query(
+    collection(db, OS_COLLECTION),
+    where('tecnico_id', '==', tecnico_id)
+  );
+  const snapshot = await getDocs(q);
+  const list = snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  })) as OrdemServico[];
+  return list.sort((a, b) => {
+    const tA = a.criado_em?.seconds || 0;
+    const tB = b.criado_em?.seconds || 0;
+    return tB - tA;
+  });
+};
+
 export const abrirOS = async (dados: {
   equipamento: EquipamentoResumido;
   tecnicoId: string;
@@ -91,6 +108,7 @@ export const abrirOS = async (dados: {
   defeitoRelatado: string;
   prioridade?: OSPrioridade;
   justificativaPrioridade?: string;
+  previsaoRetorno?: string;
 }): Promise<string> => {
   const numero_os = gerarNumeroOS();
   const agora = new Date().toISOString();
@@ -113,6 +131,7 @@ export const abrirOS = async (dados: {
     descricao_defeito: dados.defeitoRelatado,
     prioridade: prioridadeVal,
     ...(dados.justificativaPrioridade?.trim() ? { justificativa_prioridade: dados.justificativaPrioridade.trim() } : {}),
+    ...(dados.previsaoRetorno?.trim() ? { previsao_retorno: dados.previsaoRetorno.trim() } : {}),
     status: 'CRIADA',
     criado_em: serverTimestamp(),
     atualizado_em: serverTimestamp(),
@@ -283,12 +302,44 @@ export const atualizarPrioridadeOS = async (dados: {
   await updateDoc(docRef, updatePayload);
 };
 
+export const atualizarPrazoRetornoOS = async (dados: {
+  osId: string;
+  novoPrazo: string;
+  observacao?: string;
+  usuarioId: string;
+  usuarioNome: string;
+}): Promise<void> => {
+  const docRef = doc(db, OS_COLLECTION, dados.osId);
+  const agora = new Date().toISOString();
+
+  const obsText = dados.observacao?.trim()
+    ? `Novo prazo: ${dados.novoPrazo.trim()}. Observação: ${dados.observacao.trim()}`
+    : `Novo prazo definido para ${dados.novoPrazo.trim()}`;
+
+  const eventoHistorico: HistoricoObservacao = {
+    id: crypto.randomUUID(),
+    data: agora,
+    usuario_id: dados.usuarioId,
+    usuario_nome: dados.usuarioNome,
+    acao: 'Alteração no Prazo de Retorno',
+    observacao: obsText,
+  };
+
+  await updateDoc(docRef, {
+    previsao_retorno: dados.novoPrazo.trim(),
+    atualizado_em: serverTimestamp(),
+    historico_observacoes: arrayUnion(eventoHistorico),
+  });
+};
+
 export const editarOS = async (dados: {
   osId: string;
   equipamento?: EquipamentoResumido;
   descricaoDefeito?: string;
   prioridade?: OSPrioridade;
   justificativaPrioridade?: string;
+  previsaoRetorno?: string;
+  observacaoPrazo?: string;
   usuarioId: string;
   usuarioNome: string;
 }): Promise<void> => {
@@ -299,6 +350,10 @@ export const editarOS = async (dados: {
   if (dados.equipamento) alteracoesText.push('Equipamento');
   if (dados.descricaoDefeito !== undefined) alteracoesText.push('Descrição do defeito');
   if (dados.prioridade !== undefined) alteracoesText.push('Prioridade');
+  if (dados.previsaoRetorno !== undefined) {
+    const obsTxt = dados.observacaoPrazo?.trim() ? ` (Obs: ${dados.observacaoPrazo.trim()})` : '';
+    alteracoesText.push(`Prazo de retorno${obsTxt}`);
+  }
 
   const descObs = alteracoesText.length > 0 
     ? `Dados editados (${alteracoesText.join(', ')})` 
@@ -327,6 +382,13 @@ export const editarOS = async (dados: {
   }
   if (dados.descricaoDefeito !== undefined) {
     payload.descricao_defeito = dados.descricaoDefeito.trim();
+  }
+  if (dados.previsaoRetorno !== undefined) {
+    if (dados.previsaoRetorno.trim()) {
+      payload.previsao_retorno = dados.previsaoRetorno.trim();
+    } else {
+      payload.previsao_retorno = deleteField();
+    }
   }
   if (dados.prioridade !== undefined) {
     payload.prioridade = dados.prioridade;

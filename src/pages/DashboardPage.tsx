@@ -32,17 +32,23 @@ import { EditarOSModal } from "../components/EditarOSModal";
 import { useAuth } from "../contexts/AuthContext";
 import {
   atualizarPrioridadeOS,
+  atualizarPrazoRetornoOS,
   cancelarOS,
   confirmarRecebimento,
   getOSById,
   getOrdensServico,
   getOrdensServicoBySetor,
+  getOrdensServicoByTecnico,
   hardDeleteOS,
   restaurarOS,
   softDeleteOS,
 } from "../services/osService";
 import { getSetores } from "../services/setoresService";
 import type { OrdemServico, OSPrioridade, Setor } from "../types";
+import {
+  calcularPrazoRetornoDefault,
+  formatarPrazoRetorno,
+} from "../utils/prazoUtils";
 
 import {
   Card,
@@ -109,6 +115,48 @@ export const DashboardPage: React.FC = () => {
   const [osParaExcluirHard, setOsParaExcluirHard] = useState<OrdemServico | null>(null);
   const [submittingExclusaoHard, setSubmittingExclusaoHard] = useState(false);
 
+  // Modal / Form para Alteração Direta do Prazo de Retorno
+  const [osParaAlterarPrazo, setOsParaAlterarPrazo] = useState<OrdemServico | null>(null);
+  const [novoPrazoVal, setNovoPrazoVal] = useState("");
+  const [obsAlteracaoPrazoVal, setObsAlteracaoPrazoVal] = useState("");
+  const [submittingAlteracaoPrazo, setSubmittingAlteracaoPrazo] = useState(false);
+
+  const handleAbrirModalPrazo = (os: OrdemServico) => {
+    setOsParaAlterarPrazo(os);
+    setNovoPrazoVal(
+      os.previsao_retorno || calcularPrazoRetornoDefault(os.prioridade || "baixa")
+    );
+    setObsAlteracaoPrazoVal("");
+  };
+
+  const handleConfirmarAlteracaoPrazo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!osParaAlterarPrazo || !usuarioData || !novoPrazoVal.trim()) return;
+
+    setSubmittingAlteracaoPrazo(true);
+    try {
+      await atualizarPrazoRetornoOS({
+        osId: osParaAlterarPrazo.id,
+        novoPrazo: novoPrazoVal.trim(),
+        observacao: obsAlteracaoPrazoVal.trim(),
+        usuarioId: usuarioData.id,
+        usuarioNome: usuarioData.nome,
+      });
+
+      if (osSelecionada && osSelecionada.id === osParaAlterarPrazo.id) {
+        const osAtualizada = await getOSById(osParaAlterarPrazo.id);
+        if (osAtualizada) setOsSelecionada(osAtualizada);
+      }
+
+      setOsParaAlterarPrazo(null);
+      await carregarDados();
+    } catch (err) {
+      console.error("Erro ao alterar prazo de retorno:", err);
+    } finally {
+      setSubmittingAlteracaoPrazo(false);
+    }
+  };
+
   // Modal de Restauração de OS (Admin)
   const [osParaRestaurar, setOsParaRestaurar] = useState<OrdemServico | null>(null);
   const [submittingRestauracao, setSubmittingRestauracao] = useState(false);
@@ -119,6 +167,8 @@ export const DashboardPage: React.FC = () => {
 
       if (usuarioData?.papel === "solicitante" && usuarioData.setor_id) {
         osList = await getOrdensServicoBySetor(usuarioData.setor_id);
+      } else if (usuarioData?.papel === "tecnico") {
+        osList = await getOrdensServicoByTecnico(usuarioData.id);
       } else {
         osList = await getOrdensServico();
       }
@@ -1005,6 +1055,28 @@ export const DashboardPage: React.FC = () => {
                       <strong className="text-foreground">{formatarData(osSelecionada.criado_em)}</strong>
                     </p>
                   )}
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+                    <p className="m-0 font-mono text-xs flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-blue-400" />
+                      <span>Prazo Previsto de Retorno:</span>{" "}
+                      <strong className="text-amber-400 font-semibold font-mono">
+                        {formatarPrazoRetorno(osSelecionada.previsao_retorno)}
+                      </strong>
+                    </p>
+                    {isTecnico &&
+                      (osSelecionada.status === "CRIADA" ||
+                        osSelecionada.status === "EM_ASSISTENCIA") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAbrirModalPrazo(osSelecionada)}
+                          className="h-7 px-2.5 text-[11px] gap-1.5 text-blue-400 border-blue-500/30 hover:bg-blue-500/10 font-mono"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Alterar Prazo</span>
+                        </Button>
+                      )}
+                  </div>
                 </div>
               </div>
 
@@ -1378,6 +1450,78 @@ export const DashboardPage: React.FC = () => {
           </div>
         }
       />
+
+      {/* Modal de Alteração Direta do Prazo de Retorno */}
+      {osParaAlterarPrazo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md">
+          <Card className="max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-border pb-3">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2 font-mono m-0">
+                <Calendar className="w-5 h-5 text-blue-400 font-sans" /> Alterar Prazo de Retorno ({osParaAlterarPrazo.numero_os})
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setOsParaAlterarPrazo(null)}
+                className="h-8 w-8 p-0"
+              >
+                ✕
+              </Button>
+            </div>
+
+            <form onSubmit={handleConfirmarAlteracaoPrazo} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1.5 font-mono">
+                  Novo Prazo Previsto de Retorno *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={novoPrazoVal}
+                  onChange={(e) => setNovoPrazoVal(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-input rounded-xl text-xs font-mono text-foreground focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1.5 font-mono">
+                  Observação / Motivo da Mudança de Prazo
+                </label>
+                <textarea
+                  rows={3}
+                  value={obsAlteracaoPrazoVal}
+                  onChange={(e) => setObsAlteracaoPrazoVal(e.target.value)}
+                  placeholder="Informe a justificativa ou observação sobre o novo prazo..."
+                  className="w-full px-3 py-2 bg-background border border-input rounded-xl text-xs text-foreground focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-muted-foreground font-sans"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-border">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setOsParaAlterarPrazo(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={submittingAlteracaoPrazo}
+                  className="bg-blue-600 hover:bg-blue-500 text-white gap-2"
+                >
+                  {submittingAlteracaoPrazo ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <span>Salvar Alteração de Prazo</span>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

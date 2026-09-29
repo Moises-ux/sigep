@@ -10,6 +10,7 @@ import {
 } from "../services/osService";
 import { getSetores } from "../services/setoresService";
 import type { AssistenciaTecnica, OrdemServico, Setor } from "../types";
+import { formatarPrazoRetorno } from "../utils/prazoUtils";
 
 export const CheckInCheckOutPage: React.FC = () => {
   const { usuarioData } = useAuth();
@@ -202,6 +203,7 @@ export const CheckInCheckOutPage: React.FC = () => {
                     <th className="px-6 py-3">Prioridade</th>
                     <th className="px-6 py-3">Equipamento</th>
                     <th className="px-6 py-3">Setor Origem</th>
+                    <th className="px-6 py-3">Prazo Retorno</th>
                     <th className="px-6 py-3">Defeito</th>
                     <th className="px-6 py-3 text-right">Ação</th>
                   </tr>
@@ -210,7 +212,7 @@ export const CheckInCheckOutPage: React.FC = () => {
                   {osCriadas.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         className="px-6 py-8 text-center text-slate-400"
                       >
                         Nenhuma OS aguardando envio para assistência técnica.
@@ -235,6 +237,9 @@ export const CheckInCheckOutPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4">
                           {getSetorInfo(os.equipamento.setor_id)}
+                        </td>
+                        <td className="px-6 py-4 text-xs font-mono text-amber-400 font-medium">
+                          {formatarPrazoRetorno(os.previsao_retorno)}
                         </td>
                         <td className="px-6 py-4 text-xs text-slate-300 max-w-xs truncate">
                           {os.descricao_defeito}
@@ -280,6 +285,7 @@ export const CheckInCheckOutPage: React.FC = () => {
                     <th className="px-6 py-3">Prioridade</th>
                     <th className="px-6 py-3">Equipamento</th>
                     <th className="px-6 py-3">Empresa Externa</th>
+                    <th className="px-6 py-3">Prazo Retorno</th>
                     <th className="px-6 py-3 text-right">Ação</th>
                   </tr>
                 </thead>
@@ -287,7 +293,7 @@ export const CheckInCheckOutPage: React.FC = () => {
                   {osEmAssistencia.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={6}
                         className="px-6 py-8 text-center text-slate-400"
                       >
                         Nenhum equipamento atualmente em assistência externa.
@@ -312,6 +318,9 @@ export const CheckInCheckOutPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 text-amber-400 font-semibold">
                           {os.checkin?.empresa_externa || "Não informada"}
+                        </td>
+                        <td className="px-6 py-4 text-xs font-mono text-amber-400 font-medium">
+                          {formatarPrazoRetorno(os.previsao_retorno)}
                         </td>
                         <td className="px-6 py-4 text-right">
                           {canPerformCheckInOut ? (

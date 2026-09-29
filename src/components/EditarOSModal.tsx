@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   AlertCircle,
   Building2,
+  Calendar,
   Edit3,
   HardDrive,
   Loader2,
@@ -15,6 +16,7 @@ import { editarOS } from "../services/osService";
 import { getSetores } from "../services/setoresService";
 import { getEquipamentosBySetor } from "../services/equipamentosService";
 import { useAuth } from "../contexts/AuthContext";
+import { calcularPrazoRetornoDefault } from "../utils/prazoUtils";
 
 interface EditarOSModalProps {
   os: OrdemServico | null;
@@ -41,6 +43,8 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
   const [defeitoRelatado, setDefeitoRelatado] = useState("");
   const [prioridade, setPrioridade] = useState<OSPrioridade>("baixa");
   const [justificativaPrioridade, setJustificativaPrioridade] = useState("");
+  const [previsaoRetorno, setPrevisaoRetorno] = useState("");
+  const [observacaoPrazo, setObservacaoPrazo] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +80,10 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
       setDefeitoRelatado(os.descricao_defeito || "");
       setPrioridade(os.prioridade || "baixa");
       setJustificativaPrioridade(os.justificativa_prioridade || "");
+      setPrevisaoRetorno(
+        os.previsao_retorno || calcularPrazoRetornoDefault(os.prioridade || "baixa")
+      );
+      setObservacaoPrazo("");
       setError(null);
     }
   }, [os, isOpen]);
@@ -108,6 +116,14 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
 
   const isPosCriada = os.status !== "CRIADA";
   const isPriorityDisabled = os.status === "CONCLUIDA" || os.status === "CANCELADA" || os.status === "ARQUIVADA";
+  const isPrazoDisabled =
+    os.status === "RETORNADA" ||
+    os.status === "CONCLUIDA" ||
+    os.status === "CANCELADA" ||
+    os.status === "ARQUIVADA" ||
+    (usuarioData?.papel !== "admin" &&
+      usuarioData?.papel !== "supervisor" &&
+      usuarioData?.papel !== "tecnico");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,6 +158,8 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
         descricaoDefeito: defeitoRelatado.trim(),
         prioridade,
         justificativaPrioridade: (prioridade === "alta" || prioridade === "critica") ? justificativaPrioridade.trim() : undefined,
+        previsaoRetorno: previsaoRetorno.trim() ? previsaoRetorno.trim() : undefined,
+        observacaoPrazo: observacaoPrazo.trim() ? observacaoPrazo.trim() : undefined,
         usuarioId: usuarioData.id,
         usuarioNome: usuarioData.nome,
       });
@@ -257,14 +275,49 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
             <select
               value={prioridade}
               disabled={isPriorityDisabled}
-              onChange={(e) => setPrioridade(e.target.value as OSPrioridade)}
+              onChange={(e) => {
+                const novaPri = e.target.value as OSPrioridade;
+                setPrioridade(novaPri);
+                setPrevisaoRetorno(calcularPrazoRetornoDefault(novaPri));
+              }}
               className="w-full px-3.5 py-2.5 bg-background border border-input rounded-xl text-xs font-mono text-foreground focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <option value="baixa">Baixa</option>
-              <option value="media">Média</option>
-              <option value="alta">Alta</option>
-              <option value="critica">Crítica/Urgente</option>
+              <option value="baixa">Baixa (15 dias)</option>
+              <option value="media">Média (10 dias)</option>
+              <option value="alta">Alta (5 dias)</option>
+              <option value="critica">Crítica/Urgente (2 dias)</option>
             </select>
+          </div>
+
+          {/* Prazo Previsto de Retorno */}
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center justify-between font-mono">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-blue-400" />
+                <span>Prazo Previsto de Retorno da Assistência</span>
+              </div>
+              {isPrazoDisabled && (
+                <span className="text-[10px] text-amber-400 font-normal lowercase font-sans">
+                  (bloqueado após checkout ou sem permissão)
+                </span>
+              )}
+            </label>
+            <input
+              type="date"
+              disabled={isPrazoDisabled}
+              value={previsaoRetorno}
+              onChange={(e) => setPrevisaoRetorno(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-background border border-input rounded-xl text-xs font-mono text-foreground focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            />
+            {!isPrazoDisabled && (
+              <input
+                type="text"
+                value={observacaoPrazo}
+                onChange={(e) => setObservacaoPrazo(e.target.value)}
+                placeholder="Observação / motivo sobre a mudança de prazo (opcional)..."
+                className="w-full mt-2 px-3 py-2 bg-background border border-input rounded-xl text-xs text-foreground focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-muted-foreground font-sans"
+              />
+            )}
           </div>
 
           {/* Justificativa da Prioridade (condicional) */}
