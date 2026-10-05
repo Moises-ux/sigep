@@ -1,4 +1,4 @@
-import { ArrowLeftRight, CheckCircle, Loader2, ShieldAlert, Wrench } from "lucide-react";
+import { ArrowLeftRight, CheckCircle, Loader2, ShieldAlert, Wrench, Zap } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { PriorityBadge } from "../components/PriorityBadge";
 import { useAuth } from "../contexts/AuthContext";
@@ -6,6 +6,7 @@ import { getAssistenciasTecnicas } from "../services/assistenciasService";
 import {
   getOrdensServicoByStatus,
   realizarCheckIn,
+  realizarCheckInExpressoInterno,
   realizarCheckOut,
 } from "../services/osService";
 import { getSetores } from "../services/setoresService";
@@ -35,6 +36,12 @@ export const CheckInCheckOutPage: React.FC = () => {
   const [empresaExterna, setEmpresaExterna] = useState("");
   const [laudoTecnico, setLaudoTecnico] = useState("");
   const [submittingCheckIn, setSubmittingCheckIn] = useState(false);
+
+  // Fast-track específico para interna
+  const [servicoRealizado, setServicoRealizado] = useState("");
+  const [pecasInsumos, setPecasInsumos] = useState("");
+  const [destinoExpresso, setDestinoExpresso] = useState<"RETORNADA" | "CONCLUIDA" | "EM_ASSISTENCIA">("RETORNADA");
+  const [obsAceiteExpresso, setObsAceiteExpresso] = useState("");
 
   // Modal Check-out
   const [osCheckOut, setOsCheckOut] = useState<OrdemServico | null>(null);
@@ -68,12 +75,19 @@ export const CheckInCheckOutPage: React.FC = () => {
 
   const handleAbrirCheckInModal = (os: OrdemServico) => {
     setOsCheckIn(os);
-    if (assistencias.length > 0) {
-      setEmpresaExterna(assistencias[0].nome);
+    if (os.tipo_assistencia === "interna") {
+      setServicoRealizado("");
+      setPecasInsumos("");
+      setDestinoExpresso("RETORNADA");
+      setObsAceiteExpresso("");
     } else {
-      setEmpresaExterna("");
+      if (assistencias.length > 0) {
+        setEmpresaExterna(assistencias[0].nome);
+      } else {
+        setEmpresaExterna("");
+      }
+      setLaudoTecnico("");
     }
-    setLaudoTecnico("");
   };
 
   const handleConfirmarCheckIn = async (e: React.FormEvent) => {
@@ -82,17 +96,32 @@ export const CheckInCheckOutPage: React.FC = () => {
 
     setSubmittingCheckIn(true);
     try {
-      await realizarCheckIn({
-        osId: osCheckIn.id,
-        supervisorId: usuarioData.id,
-        supervisorNome: usuarioData.nome,
-        empresaExterna: empresaExterna.trim(),
-        laudoTecnico: laudoTecnico.trim(),
-      });
+      if (osCheckIn.tipo_assistencia === "interna") {
+        await realizarCheckInExpressoInterno({
+          osId: osCheckIn.id,
+          usuarioId: usuarioData.id,
+          usuarioNome: usuarioData.nome,
+          servicoRealizado: servicoRealizado.trim(),
+          pecasInsumos: pecasInsumos.trim() || undefined,
+          destino: destinoExpresso,
+          observacaoAceite: obsAceiteExpresso.trim() || undefined,
+          equipamentoId: osCheckIn.equipamento.id,
+        });
+      } else {
+        await realizarCheckIn({
+          osId: osCheckIn.id,
+          supervisorId: usuarioData.id,
+          supervisorNome: usuarioData.nome,
+          empresaExterna: empresaExterna.trim(),
+          laudoTecnico: laudoTecnico.trim(),
+        });
+      }
 
       setOsCheckIn(null);
       setEmpresaExterna("");
       setLaudoTecnico("");
+      setServicoRealizado("");
+      setPecasInsumos("");
       await carregarDados();
     } catch (err) {
       console.error("Erro no Check-in:", err);
@@ -225,7 +254,22 @@ export const CheckInCheckOutPage: React.FC = () => {
                         className="hover:bg-slate-750 transition-colors"
                       >
                         <td className="px-6 py-4 font-bold text-white font-mono">
-                          {os.numero_os}
+                          <div className="flex flex-col gap-1 items-start">
+                            <span>{os.numero_os}</span>
+                            {os.tipo_assistencia && (
+                              <span
+                                className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${
+                                  os.tipo_assistencia === "interna"
+                                    ? "bg-blue-500/15 text-blue-300 border-blue-500/30"
+                                    : "bg-purple-500/15 text-purple-300 border-purple-500/30"
+                                }`}
+                              >
+                                {os.tipo_assistencia === "interna"
+                                  ? "Interna"
+                                  : "Externa"}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <PriorityBadge prioridade={os.prioridade} size="sm" />
@@ -246,13 +290,24 @@ export const CheckInCheckOutPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 text-right">
                           {canPerformCheckInOut ? (
-                            <button
-                              onClick={() => handleAbrirCheckInModal(os)}
-                              className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow transition-all flex items-center gap-1.5 ml-auto"
-                            >
-                              <Wrench className="w-4 h-4" />
-                              <span>Realizar Check-in</span>
-                            </button>
+                            os.tipo_assistencia === "interna" ? (
+                              <button
+                                onClick={() => handleAbrirCheckInModal(os)}
+                                className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1.5 ml-auto"
+                                title="Atendimento Expresso (Assistência Interna)"
+                              >
+                                <Zap className="w-4 h-4 text-blue-200" />
+                                <span>Fluxo Expresso</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleAbrirCheckInModal(os)}
+                                className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow transition-all flex items-center gap-1.5 ml-auto"
+                              >
+                                <Wrench className="w-4 h-4" />
+                                <span>Realizar Check-in</span>
+                              </button>
+                            )
                           ) : (
                             <span className="inline-block px-2.5 py-1 text-[11px] font-mono font-medium rounded-full bg-slate-900 text-slate-400 border border-slate-700">
                               Aguardando Check-in
@@ -347,7 +402,218 @@ export const CheckInCheckOutPage: React.FC = () => {
         </div>
       )}
 
-      {osCheckIn && (
+      {osCheckIn && osCheckIn.tipo_assistencia === "interna" ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-slate-700 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-500/20 text-blue-400 rounded-xl">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white font-mono m-0 flex items-center gap-2">
+                    <span>Atendimento Expresso</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                      {osCheckIn.numero_os}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 m-0 mt-0.5">
+                    Assistência Interna (Técnico Local)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setOsCheckIn(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Resumo do Equipamento e Defeito */}
+            <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-700/60 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-mono">Equipamento:</span>
+                <span className="font-semibold text-white">
+                  {osCheckIn.equipamento.tipo} {osCheckIn.equipamento.marca}{" "}
+                  {osCheckIn.equipamento.modelo} (Pat:{" "}
+                  {osCheckIn.equipamento.patrimonio})
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-mono">Setor Solicitante:</span>
+                <span className="font-semibold text-white">
+                  {getSetorInfo(osCheckIn.equipamento.setor_id)}
+                </span>
+              </div>
+              <div className="pt-2 border-t border-slate-800 text-slate-300">
+                <span className="text-slate-400 font-mono block text-[10px] uppercase">
+                  Defeito Relatado:
+                </span>
+                <p className="mt-0.5 m-0 text-slate-200 italic">
+                  "{osCheckIn.descricao_defeito}"
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmarCheckIn} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1 font-mono">
+                  Serviço / Procedimento Realizado *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={servicoRealizado}
+                  onChange={(e) => setServicoRealizado(e.target.value)}
+                  placeholder="Ex: Abastecimento de tinta preta e limpeza dos bicos injetores. Impressão de teste com 100% de nitidez."
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1 font-mono">
+                  Peças ou Insumos Utilizados (Opcional)
+                </label>
+                <input
+                  type="text"
+                  value={pecasInsumos}
+                  onChange={(e) => setPecasInsumos(e.target.value)}
+                  placeholder="Ex: 1x Refil Tinta Preta T544..."
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:ring-2 focus:ring-blue-500 outline-none placeholder:text-slate-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase mb-2 font-mono">
+                  Destino da Ordem de Serviço
+                </label>
+                <div className="space-y-2">
+                  <div
+                    onClick={() => setDestinoExpresso("RETORNADA")}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
+                      destinoExpresso === "RETORNADA"
+                        ? "bg-blue-600/15 border-blue-500 ring-1 ring-blue-500/40 text-white"
+                        : "bg-slate-900/60 border-slate-700 hover:border-slate-600 text-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="destinoExpresso"
+                      checked={destinoExpresso === "RETORNADA"}
+                      onChange={() => setDestinoExpresso("RETORNADA")}
+                      className="mt-1"
+                    />
+                    <div>
+                      <div className="font-semibold text-xs text-white flex items-center gap-2">
+                        <span>Disponibilizar para Aceite do Setor (Status: RETORNADA)</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                          Recomendado
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                        Serviço concluído na bancada. O equipamento fica disponível para o solicitante testar e confirmar o recebimento.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => setDestinoExpresso("CONCLUIDA")}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
+                      destinoExpresso === "CONCLUIDA"
+                        ? "bg-emerald-600/15 border-emerald-500 ring-1 ring-emerald-500/40 text-white"
+                        : "bg-slate-900/60 border-slate-700 hover:border-slate-600 text-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="destinoExpresso"
+                      checked={destinoExpresso === "CONCLUIDA"}
+                      onChange={() => setDestinoExpresso("CONCLUIDA")}
+                      className="mt-1"
+                    />
+                    <div>
+                      <div className="font-semibold text-xs text-white flex items-center gap-2">
+                        <span>Conclusão Direta com Aceite in loco (Status: CONCLUÍDA)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                        O atendimento e teste foram realizados na presença do solicitante no próprio setor. Finaliza a OS imediatamente.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => setDestinoExpresso("EM_ASSISTENCIA")}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
+                      destinoExpresso === "EM_ASSISTENCIA"
+                        ? "bg-amber-600/15 border-amber-500 ring-1 ring-amber-500/40 text-white"
+                        : "bg-slate-900/60 border-slate-700 hover:border-slate-600 text-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="destinoExpresso"
+                      checked={destinoExpresso === "EM_ASSISTENCIA"}
+                      onChange={() => setDestinoExpresso("EM_ASSISTENCIA")}
+                      className="mt-1"
+                    />
+                    <div>
+                      <div className="font-semibold text-xs text-white">
+                        Iniciar Atendimento na Bancada (Status: EM_ASSISTENCIA)
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                        Registrar início do reparo. A conclusão e devolução serão realizadas posteriormente.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {destinoExpresso === "CONCLUIDA" && (
+                <div>
+                  <label className="block text-xs font-semibold text-emerald-400 uppercase mb-1 font-mono">
+                    Observação do Aceite in loco (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={obsAceiteExpresso}
+                    onChange={(e) => setObsAceiteExpresso(e.target.value)}
+                    placeholder="Ex: Testado e validado junto ao solicitante no setor..."
+                    className="w-full px-3 py-2 bg-slate-900 border border-emerald-500/40 rounded-xl text-xs text-white focus:ring-2 focus:ring-emerald-500 outline-none placeholder:text-slate-500"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setOsCheckIn(null)}
+                  className="px-4 py-2 text-xs text-slate-400 hover:text-white"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingCheckIn || !servicoRealizado.trim()}
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-xl text-xs transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg shadow-blue-600/20"
+                >
+                  {submittingCheckIn ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Processando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4" />
+                      <span>Confirmar Atendimento Expresso</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : osCheckIn ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
           <div className="bg-slate-800 border border-slate-700 rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-slate-700 pb-3">
@@ -425,7 +691,7 @@ export const CheckInCheckOutPage: React.FC = () => {
             </form>
           </div>
         </div>
-      )}
+      ) : null}
 
       {osCheckOut && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">

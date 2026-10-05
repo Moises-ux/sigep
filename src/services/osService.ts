@@ -23,6 +23,7 @@ import type {
   OrdemServico,
   OSPrioridade,
   OSStatus,
+  TipoAssistencia,
 } from "../types";
 import {
   atualizarStatusEquipamento,
@@ -113,6 +114,7 @@ export const abrirOS = async (dados: {
   tecnicoId: string;
   tecnicoNome: string;
   defeitoRelatado: string;
+  tipoAssistencia?: TipoAssistencia;
   prioridade?: OSPrioridade;
   justificativaPrioridade?: string;
   previsaoRetorno?: string;
@@ -120,6 +122,7 @@ export const abrirOS = async (dados: {
   const numero_os = gerarNumeroOS();
   const agora = new Date().toISOString();
   const prioridadeVal = dados.prioridade || "baixa";
+  const tipoAssistenciaVal = dados.tipoAssistencia || "interna";
 
   const primeiroHistorico: HistoricoObservacao = {
     id: crypto.randomUUID(),
@@ -127,7 +130,7 @@ export const abrirOS = async (dados: {
     usuario_id: dados.tecnicoId,
     usuario_nome: dados.tecnicoNome,
     acao: "Abertura de OS",
-    observacao: `OS criada com defeito relatado: "${dados.defeitoRelatado}" (Prioridade: ${prioridadeVal})`,
+    observacao: `OS criada (${tipoAssistenciaVal === "interna" ? "Assistência Interna" : "Assistência Externa"}) com defeito relatado: "${dados.defeitoRelatado}" (Prioridade: ${prioridadeVal})`,
   };
 
   const novaOS: Omit<OrdemServico, "id"> = {
@@ -135,6 +138,7 @@ export const abrirOS = async (dados: {
     equipamento: dados.equipamento,
     tecnico_id: dados.tecnicoId,
     tecnico_nome: dados.tecnicoNome,
+    tipo_assistencia: tipoAssistenciaVal,
     descricao_defeito: dados.defeitoRelatado,
     prioridade: prioridadeVal,
     ...(dados.justificativaPrioridade?.trim()
@@ -186,6 +190,117 @@ export const realizarCheckIn = async (dados: {
     checkin: checkinData,
     atualizado_em: serverTimestamp(),
   });
+};
+
+export const realizarCheckInExpressoInterno = async (dados: {
+  osId: string;
+  usuarioId: string;
+  usuarioNome: string;
+  servicoRealizado: string;
+  pecasInsumos?: string;
+  destino: "RETORNADA" | "CONCLUIDA" | "EM_ASSISTENCIA";
+  observacaoAceite?: string;
+  equipamentoId?: string;
+}): Promise<void> => {
+  const docRef = doc(db, OS_COLLECTION, dados.osId);
+  const agora = new Date().toISOString();
+
+  const insumosTxt = dados.pecasInsumos?.trim()
+    ? ` (Insumos/Peças: ${dados.pecasInsumos.trim()})`
+    : "";
+
+  const checkinData: CheckInInfo = {
+    supervisor_id: dados.usuarioId,
+    supervisor_nome: dados.usuarioNome,
+    data: agora,
+    empresa_externa: "Atendimento Interno (Técnico Local)",
+    laudo_tecnico: `${dados.servicoRealizado.trim()}${insumosTxt}`,
+  };
+
+  if (dados.destino === "EM_ASSISTENCIA") {
+    const eventoHistorico: HistoricoObservacao = {
+      id: crypto.randomUUID(),
+      data: agora,
+      usuario_id: dados.usuarioId,
+      usuario_nome: dados.usuarioNome,
+      acao: "Início de Atendimento Interno",
+      observacao: `Equipamento assumido na bancada/local. Diagnóstico/Ação: "${dados.servicoRealizado.trim()}"${insumosTxt}`,
+    };
+
+    await updateDoc(docRef, {
+      status: "EM_ASSISTENCIA",
+      checkin: checkinData,
+      historico_observacoes: arrayUnion(eventoHistorico),
+      atualizado_em: serverTimestamp(),
+    });
+    return;
+  }
+
+  const checkoutData: CheckOutInfo = {
+    supervisor_id: dados.usuarioId,
+    supervisor_nome: dados.usuarioNome,
+    data: agora,
+    observacoes: `Atendimento interno concluído. Serviço: ${dados.servicoRealizado.trim()}${insumosTxt}`,
+  };
+
+  if (dados.destino === "CONCLUIDA") {
+    const aceiteData: AceiteFuncionarioInfo = {
+      funcionario_id: dados.usuarioId,
+      funcionario_nome: dados.usuarioNome,
+      data: agora,
+      observacoes:
+        dados.observacaoAceite?.trim() ||
+        "Concluído e validado in loco com o solicitante do setor.",
+    };
+
+    const eventoHistorico: HistoricoObservacao = {
+      id: crypto.randomUUID(),
+      data: agora,
+      usuario_id: dados.usuarioId,
+      usuario_nome: dados.usuarioNome,
+      acao: "Fluxo Expresso - Finalização Direta",
+      observacao: `Serviço realizado: "${dados.servicoRealizado.trim()}"${insumosTxt}. OS concluída com aceite confirmado in loco.`,
+    };
+
+    await updateDoc(docRef, {
+      status: "CONCLUIDA",
+      checkin: checkinData,
+      checkout: checkoutData,
+      aceite_funcionario: aceiteData,
+      historico_observacoes: arrayUnion(eventoHistorico),
+      atualizado_em: serverTimestamp(),
+    });
+
+    let eqId = dados.equipamentoId;
+    if (!eqId) {
+      const osSnap = await getDoc(docRef);
+      if (osSnap.exists()) {
+        eqId = osSnap.data().equipamento?.id;
+      }
+    }
+
+    if (eqId) {
+      await incrementarManutencoesConcluidas(eqId, "operacional");
+    }
+  } else {
+    // dados.destino === "RETORNADA"
+    const eventoHistorico: HistoricoObservacao = {
+      id: crypto.randomUUID(),
+      data: agora,
+      usuario_id: dados.usuarioId,
+      usuario_nome: dados.usuarioNome,
+      acao: "Fluxo Expresso - Manutenção Interna Concluída",
+      observacao: `Serviço realizado: "${dados.servicoRealizado.trim()}"${insumosTxt}. Equipamento pronto e aguardando aceite do setor.`,
+    };
+
+    await updateDoc(docRef, {
+      status: "RETORNADA",
+      checkin: checkinData,
+      checkout: checkoutData,
+      historico_observacoes: arrayUnion(eventoHistorico),
+      atualizado_em: serverTimestamp(),
+    });
+  }
 };
 
 export const realizarCheckOut = async (dados: {
@@ -368,23 +483,39 @@ export const atualizarPrazoRetornoOS = async (dados: {
 export const editarOS = async (dados: {
   osId: string;
   equipamento?: EquipamentoResumido;
+  tipoAssistencia?: TipoAssistencia;
   descricaoDefeito?: string;
   prioridade?: OSPrioridade;
   justificativaPrioridade?: string;
   previsaoRetorno?: string;
   observacaoPrazo?: string;
+  status?: OSStatus;
   usuarioId: string;
   usuarioNome: string;
 }): Promise<void> => {
   const docRef = doc(db, OS_COLLECTION, dados.osId);
   const agora = new Date().toISOString();
 
+  const osSnap = await getDoc(docRef);
+  const osAtual = osSnap.exists() ? (osSnap.data() as OrdemServico) : null;
+
   const alteracoesText: string[] = [];
-  if (dados.equipamento) alteracoesText.push("Equipamento");
-  if (dados.descricaoDefeito !== undefined)
+  if (dados.status !== undefined && dados.status !== osAtual?.status) {
+    alteracoesText.push(`Etapa/Status (${dados.status})`);
+  }
+  if (dados.equipamento && dados.equipamento.id !== osAtual?.equipamento?.id) {
+    alteracoesText.push("Equipamento");
+  }
+  if (dados.tipoAssistencia !== undefined && dados.tipoAssistencia !== osAtual?.tipo_assistencia) {
+    alteracoesText.push("Tipo de assistência");
+  }
+  if (dados.descricaoDefeito !== undefined && dados.descricaoDefeito.trim() !== osAtual?.descricao_defeito) {
     alteracoesText.push("Descrição do defeito");
-  if (dados.prioridade !== undefined) alteracoesText.push("Prioridade");
-  if (dados.previsaoRetorno !== undefined) {
+  }
+  if (dados.prioridade !== undefined && dados.prioridade !== osAtual?.prioridade) {
+    alteracoesText.push("Prioridade");
+  }
+  if (dados.previsaoRetorno !== undefined && dados.previsaoRetorno.trim() !== osAtual?.previsao_retorno) {
     const obsTxt = dados.observacaoPrazo?.trim()
       ? ` (Obs: ${dados.observacaoPrazo.trim()})`
       : "";
@@ -414,8 +545,27 @@ export const editarOS = async (dados: {
     historico_observacoes: arrayUnion(eventoHistorico),
   };
 
+  if (dados.status !== undefined) {
+    payload.status = dados.status;
+    if (dados.status === "ARQUIVADA") {
+      payload.deletado = true;
+      payload.deletado_por = {
+        id: dados.usuarioId,
+        nome: dados.usuarioNome,
+      };
+      payload.deletado_em = serverTimestamp();
+    } else if (osAtual?.deletado) {
+      payload.deletado = false;
+      payload.deletado_por = deleteField();
+      payload.deletado_em = deleteField();
+    }
+  }
+
   if (dados.equipamento) {
     payload.equipamento = dados.equipamento;
+  }
+  if (dados.tipoAssistencia !== undefined) {
+    payload.tipo_assistencia = dados.tipoAssistencia;
   }
   if (dados.descricaoDefeito !== undefined) {
     payload.descricao_defeito = dados.descricaoDefeito.trim();
@@ -449,6 +599,35 @@ export const editarOS = async (dados: {
   }
 
   await updateDoc(docRef, payload);
+
+  // Sincronizar status do(s) equipamento(s) quando status ou equipamento mudarem
+  if (osAtual) {
+    const statusFinal = dados.status || osAtual.status;
+    const isFinalizado =
+      statusFinal === "CONCLUIDA" ||
+      statusFinal === "CANCELADA" ||
+      statusFinal === "ARQUIVADA";
+    const novoStatusEquipamento = isFinalizado ? "operacional" : "em_manutencao";
+
+    // Se o equipamento foi alterado
+    if (
+      dados.equipamento &&
+      osAtual.equipamento?.id &&
+      dados.equipamento.id !== osAtual.equipamento.id
+    ) {
+      await atualizarStatusEquipamento(osAtual.equipamento.id, "operacional");
+      await atualizarStatusEquipamento(dados.equipamento.id, novoStatusEquipamento);
+    } else if (dados.status !== undefined && dados.status !== osAtual.status) {
+      const eqId = dados.equipamento?.id || osAtual.equipamento?.id;
+      if (eqId) {
+        if (dados.status === "CONCLUIDA") {
+          await incrementarManutencoesConcluidas(eqId, "operacional");
+        } else {
+          await atualizarStatusEquipamento(eqId, novoStatusEquipamento);
+        }
+      }
+    }
+  }
 };
 
 export const softDeleteOS = async (dados: {

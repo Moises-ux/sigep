@@ -61,6 +61,18 @@ export const OSStepper: React.FC<OSStepperProps> = ({ os }) => {
           const Icon = step.icon;
           const isCompleted = idx < currentStepIndex;
           const isCurrent = idx === currentStepIndex;
+          const isInterna = os.tipo_assistencia === 'interna';
+
+          const label =
+            step.key === 'EM_ASSISTENCIA'
+              ? isInterna
+                ? 'Atendimento'
+                : 'Check-in (Envio)'
+              : step.key === 'RETORNADA'
+              ? isInterna
+                ? 'Pronto no Setor'
+                : 'Check-out (Retorno)'
+              : step.label;
 
           return (
             <div key={step.key} className="flex flex-col items-center text-center relative z-10 px-0.5 min-w-0">
@@ -85,17 +97,21 @@ export const OSStepper: React.FC<OSStepperProps> = ({ os }) => {
                     : 'text-slate-500'
                 }`}
               >
-                {step.label}
+                {label}
               </span>
 
               {isCompleted && step.key === 'CRIADA' && (
                 <span className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-full">Criada</span>
               )}
               {isCompleted && step.key === 'EM_ASSISTENCIA' && os.checkin && (
-                <span className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-full">Enviado</span>
+                <span className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-full">
+                  {isInterna ? 'Iniciado' : 'Enviado'}
+                </span>
               )}
               {isCompleted && step.key === 'RETORNADA' && os.checkout && (
-                <span className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-full">Retornado</span>
+                <span className="text-[9px] sm:text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-full">
+                  {isInterna ? 'Pronto' : 'Retornado'}
+                </span>
               )}
               {isCompleted && step.key === 'CONCLUIDA' && os.aceite_funcionario && (
                 <span className="text-[9px] sm:text-[10px] text-emerald-500/80 font-mono mt-0.5 truncate max-w-full">Concluído</span>

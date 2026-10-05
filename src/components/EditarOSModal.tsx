@@ -7,9 +7,11 @@ import {
   Building2,
   Calendar,
   Edit3,
+  ExternalLink,
   HardDrive,
   Loader2,
   Lock,
+  ShieldCheck,
   Wrench,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
@@ -17,7 +19,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { getEquipamentosBySetor } from "../services/equipamentosService";
 import { editarOS } from "../services/osService";
 import { getSetores } from "../services/setoresService";
-import type { Equipamento, OrdemServico, OSPrioridade, Setor } from "../types";
+import type { Equipamento, OrdemServico, OSPrioridade, OSStatus, Setor, TipoAssistencia } from "../types";
 import { calcularPrazoRetornoDefault } from "../utils/prazoUtils";
 
 interface EditarOSModalProps {
@@ -42,6 +44,8 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
 
   const [setorId, setSetorId] = useState("");
   const [equipamentoId, setEquipamentoId] = useState("");
+  const [tipoAssistencia, setTipoAssistencia] = useState<TipoAssistencia>("interna");
+  const [statusOS, setStatusOS] = useState<OSStatus>("CRIADA");
   const [defeitoRelatado, setDefeitoRelatado] = useState("");
   const [prioridade, setPrioridade] = useState<OSPrioridade>("baixa");
   const [justificativaPrioridade, setJustificativaPrioridade] = useState("");
@@ -79,6 +83,8 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
       const initSetorId = os.equipamento.setor_id || "";
       setSetorId(initSetorId);
       setEquipamentoId(os.equipamento.id || "");
+      setTipoAssistencia(os.tipo_assistencia || "interna");
+      setStatusOS(os.status);
       setDefeitoRelatado(os.descricao_defeito || "");
       setPrioridade(os.prioridade || "baixa");
       setJustificativaPrioridade(os.justificativa_prioridade || "");
@@ -117,19 +123,22 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
 
   if (!isOpen || !os) return null;
 
-  const isPosCriada = os.status !== "CRIADA";
+  const isAdmin = usuarioData?.papel === "admin";
+  const isPosCriada = os.status !== "CRIADA" && !isAdmin;
   const isPriorityDisabled =
-    os.status === "CONCLUIDA" ||
-    os.status === "CANCELADA" ||
-    os.status === "ARQUIVADA";
+    !isAdmin &&
+    (os.status === "CONCLUIDA" ||
+      os.status === "CANCELADA" ||
+      os.status === "ARQUIVADA");
   const isPrazoDisabled =
-    os.status === "RETORNADA" ||
-    os.status === "CONCLUIDA" ||
-    os.status === "CANCELADA" ||
-    os.status === "ARQUIVADA" ||
-    (usuarioData?.papel !== "admin" &&
-      usuarioData?.papel !== "supervisor" &&
-      usuarioData?.papel !== "tecnico");
+    !isAdmin &&
+    (os.status === "RETORNADA" ||
+      os.status === "CONCLUIDA" ||
+      os.status === "CANCELADA" ||
+      os.status === "ARQUIVADA" ||
+      (usuarioData?.papel !== "admin" &&
+        usuarioData?.papel !== "supervisor" &&
+        usuarioData?.papel !== "tecnico"));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,7 +168,7 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
       await editarOS({
         osId: os.id,
         equipamento:
-          !isPosCriada && eqSelecionado
+          eqSelecionado && (!isPosCriada || isAdmin)
             ? {
                 id: eqSelecionado.id,
                 patrimonio: eqSelecionado.patrimonio,
@@ -169,6 +178,8 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
                 setor_id: eqSelecionado.setor_id,
               }
             : undefined,
+        tipoAssistencia: !isPosCriada || isAdmin ? tipoAssistencia : undefined,
+        status: isAdmin ? statusOS : undefined,
         descricaoDefeito: defeitoRelatado.trim(),
         prioridade,
         justificativaPrioridade:
@@ -213,12 +224,21 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
           </Button>
         </div>
 
-        {isPosCriada && (
+        {isAdmin && (
+          <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2.5 text-xs text-amber-300">
+            <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+            <div>
+              <strong className="text-amber-400">Modo Administrador:</strong> Você tem permissão total para alterar esta OS em qualquer etapa (setor, equipamento, tipo de assistência, status, prioridade e prazos).
+            </div>
+          </div>
+        )}
+
+        {!isAdmin && isPosCriada && (
           <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2.5 text-xs text-amber-400">
             <Lock className="w-4 h-4 shrink-0 mt-0.5" />
             <span>
               <strong>Campos Bloqueados:</strong> Como esta OS já passou da
-              etapa de abertura ({os.status}), os campos de setor e equipamento
+              etapa de abertura ({os.status}), os campos de setor, equipamento e tipo de assistência
               estão fixados e não podem ser alterados.
             </span>
           </div>
@@ -232,6 +252,27 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5 text-xs">
+          {/* Status / Etapa da OS (Exclusivo Admin) */}
+          {isAdmin && (
+            <div>
+              <label className="block text-xs font-semibold text-amber-400 uppercase mb-2 flex items-center gap-1.5 font-mono">
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <span>Etapa / Status da OS (Controle de Administrador)</span>
+              </label>
+              <select
+                value={statusOS}
+                onChange={(e) => setStatusOS(e.target.value as OSStatus)}
+                className="w-full px-3.5 py-2.5 bg-background border border-amber-500/40 rounded-xl text-xs font-mono text-foreground focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer"
+              >
+                <option value="CRIADA">CRIADA (Aguardando Check-in / Envio)</option>
+                <option value="EM_ASSISTENCIA">EM_ASSISTENCIA (Em Assistência / Manutenção)</option>
+                <option value="RETORNADA">RETORNADA (Retornou / Aguardando Aceite)</option>
+                <option value="CONCLUIDA">CONCLUIDA (Aceite Confirmado / Finalizada)</option>
+                <option value="CANCELADA">CANCELADA (Cancelada)</option>
+                <option value="ARQUIVADA">ARQUIVADA (Lixeira / Arquivada)</option>
+              </select>
+            </div>
+          )}
           {/* Setor Solicitante / Origem */}
           <div>
             <label className="block text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1.5 font-mono">
@@ -295,6 +336,86 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
             )}
           </div>
 
+          {/* Tipo de Assistência */}
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1.5 font-mono">
+              <Wrench className="w-4 h-4 text-blue-400" />
+              <span>Tipo de Assistência</span>
+              {isPosCriada && (
+                <span className="text-[10px] text-amber-400 font-normal lowercase font-sans">
+                  (bloqueado para o status atual)
+                </span>
+              )}
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={isPosCriada}
+                onClick={() => setTipoAssistencia("interna")}
+                className={`p-3 rounded-xl border text-left transition-all flex items-start gap-3 ${
+                  isPosCriada
+                    ? "cursor-not-allowed opacity-60"
+                    : "cursor-pointer"
+                } ${
+                  tipoAssistencia === "interna"
+                    ? "bg-blue-600/10 border-blue-500 ring-1 ring-blue-500/40 text-foreground"
+                    : "bg-background border-input hover:border-slate-600 text-muted-foreground"
+                }`}
+              >
+                <div
+                  className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${
+                    tipoAssistencia === "interna"
+                      ? "bg-blue-600 text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  <Wrench className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-foreground">
+                    Assistência Interna
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    Realizada pelo próprio técnico local (ex.: abastecimento de tinta).
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                disabled={isPosCriada}
+                onClick={() => setTipoAssistencia("externa")}
+                className={`p-3 rounded-xl border text-left transition-all flex items-start gap-3 ${
+                  isPosCriada
+                    ? "cursor-not-allowed opacity-60"
+                    : "cursor-pointer"
+                } ${
+                  tipoAssistencia === "externa"
+                    ? "bg-purple-600/10 border-purple-500 ring-1 ring-purple-500/40 text-foreground"
+                    : "bg-background border-input hover:border-slate-600 text-muted-foreground"
+                }`}
+              >
+                <div
+                  className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${
+                    tipoAssistencia === "externa"
+                      ? "bg-purple-600 text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-foreground">
+                    Assistência Externa
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    Encaminhada para assistência especializada externa.
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
           {/* Nível de Atenção / Prioridade */}
           <div>
             <label className="block text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-1.5 font-mono">
@@ -328,7 +449,11 @@ export const EditarOSModal: React.FC<EditarOSModalProps> = ({
             <label className="block text-xs font-semibold text-muted-foreground uppercase mb-2 flex items-center justify-between font-mono">
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-blue-400" />
-                <span>Prazo Previsto de Retorno da Assistência</span>
+                <span>
+                  {tipoAssistencia === "interna"
+                    ? "Prazo Previsto de Conclusão (Interna)"
+                    : "Prazo Previsto de Retorno da Assistência"}
+                </span>
               </div>
               {isPrazoDisabled && (
                 <span className="text-[10px] text-amber-400 font-normal lowercase font-sans">
