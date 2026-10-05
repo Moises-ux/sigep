@@ -225,7 +225,22 @@ export const CheckInCheckOutPage: React.FC = () => {
                         className="hover:bg-slate-750 transition-colors"
                       >
                         <td className="px-6 py-4 font-bold text-white font-mono">
-                          {os.numero_os}
+                          <div className="flex flex-col gap-1 items-start">
+                            <span>{os.numero_os}</span>
+                            {os.tipo_assistencia && (
+                              <span
+                                className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${
+                                  os.tipo_assistencia === "interna"
+                                    ? "bg-blue-500/15 text-blue-300 border-blue-500/30"
+                                    : "bg-purple-500/15 text-purple-300 border-purple-500/30"
+                                }`}
+                              >
+                                {os.tipo_assistencia === "interna"
+                                  ? "Interna"
+                                  : "Externa"}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <PriorityBadge prioridade={os.prioridade} size="sm" />

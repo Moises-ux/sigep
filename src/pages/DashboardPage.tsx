@@ -696,12 +696,27 @@ export const DashboardPage: React.FC = () => {
                 {ordensFiltradas.map((os) => (
                   <TableRow key={os.id} className="hover:bg-muted/50">
                     <TableCell className="font-mono text-xs font-bold text-foreground">
-                      <Badge
-                        variant="outline"
-                        className="font-mono text-xs font-bold"
-                      >
-                        {os.numero_os}
-                      </Badge>
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge
+                          variant="outline"
+                          className="font-mono text-xs font-bold"
+                        >
+                          {os.numero_os}
+                        </Badge>
+                        {os.tipo_assistencia && (
+                          <span
+                            className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded border ${
+                              os.tipo_assistencia === "interna"
+                                ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                                : "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                            }`}
+                          >
+                            {os.tipo_assistencia === "interna"
+                              ? "Interna"
+                              : "Externa"}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
 
                     <TableCell>
@@ -773,17 +788,22 @@ export const DashboardPage: React.FC = () => {
                           <span className="hidden sm:inline">Detalhes</span>
                         </Button>
 
-                        {isTecnico &&
-                          !os.deletado &&
-                          os.status !== "CONCLUIDA" &&
-                          os.status !== "CANCELADA" &&
-                          os.status !== "ARQUIVADA" && (
+                        {(isAdmin ||
+                          (isTecnico &&
+                            !os.deletado &&
+                            os.status !== "CONCLUIDA" &&
+                            os.status !== "CANCELADA" &&
+                            os.status !== "ARQUIVADA")) && (
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => setOsParaEditar(os)}
                               className="h-8 px-2 gap-1 text-xs text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
-                              title="Editar dados da OS"
+                              title={
+                                isAdmin
+                                  ? "Editar dados e etapa da OS (Administrador)"
+                                  : "Editar dados da OS"
+                              }
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                               <span className="hidden md:inline">Editar</span>
@@ -886,9 +906,10 @@ export const DashboardPage: React.FC = () => {
                     <PriorityBadge prioridade={osSelecionada.prioridade} />
 
                     {canEditPriority &&
-                    osSelecionada.status !== "CONCLUIDA" &&
-                    osSelecionada.status !== "CANCELADA" &&
-                    osSelecionada.status !== "ARQUIVADA" ? (
+                    (isAdmin ||
+                      (osSelecionada.status !== "CONCLUIDA" &&
+                        osSelecionada.status !== "CANCELADA" &&
+                        osSelecionada.status !== "ARQUIVADA")) ? (
                       <Button
                         variant="outline"
                         size="sm"
@@ -934,6 +955,21 @@ export const DashboardPage: React.FC = () => {
                   </div>
 
                   <StatusBadge status={osSelecionada.status} />
+
+                  {osSelecionada.tipo_assistencia && (
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] font-medium px-2 py-0.5 ${
+                        osSelecionada.tipo_assistencia === "interna"
+                          ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                          : "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                      }`}
+                    >
+                      {osSelecionada.tipo_assistencia === "interna"
+                        ? "Assistência Interna"
+                        : "Assistência Externa"}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 font-mono">
                   {osSelecionada.equipamento.tipo}{" "}
@@ -942,24 +978,50 @@ export const DashboardPage: React.FC = () => {
                   {osSelecionada.equipamento.patrimonio})
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setOsSelecionada(null);
-                  setEditandoPrioridade(false);
-                }}
-                className="h-8 w-8 p-0"
-              >
-                ✕
-              </Button>
+              <div className="flex items-center gap-2">
+                {(isAdmin ||
+                  (isTecnico &&
+                    !osSelecionada.deletado &&
+                    osSelecionada.status !== "CONCLUIDA" &&
+                    osSelecionada.status !== "CANCELADA" &&
+                    osSelecionada.status !== "ARQUIVADA")) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setOsParaEditar(osSelecionada);
+                    }}
+                    className="h-8 px-2.5 gap-1.5 text-xs text-blue-400 border-blue-500/30 hover:bg-blue-500/10 font-mono"
+                    title={
+                      isAdmin
+                        ? "Editar dados e etapa da OS (Administrador)"
+                        : "Editar dados da OS"
+                    }
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Editar OS</span>
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setOsSelecionada(null);
+                    setEditandoPrioridade(false);
+                  }}
+                  className="h-8 w-8 p-0"
+                >
+                  ✕
+                </Button>
+              </div>
             </div>
 
             {editandoPrioridade &&
               canEditPriority &&
-              osSelecionada.status !== "CONCLUIDA" &&
-              osSelecionada.status !== "CANCELADA" &&
-              osSelecionada.status !== "ARQUIVADA" && (
+              (isAdmin ||
+                (osSelecionada.status !== "CONCLUIDA" &&
+                  osSelecionada.status !== "CANCELADA" &&
+                  osSelecionada.status !== "ARQUIVADA")) && (
                 <form
                   onSubmit={handleSalvarPrioridade}
                   className="bg-muted/80 p-4 rounded-xl border border-border space-y-3 shadow-xs"
@@ -1154,14 +1216,19 @@ export const DashboardPage: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <p className="m-0 font-mono text-xs flex items-center gap-1.5">
                         <Calendar className="w-4 h-4 text-blue-400" />
-                        <span>Prazo Previsto de Retorno:</span>{" "}
+                        <span>
+                          {osSelecionada.tipo_assistencia === "interna"
+                            ? "Prazo Previsto de Conclusão:"
+                            : "Prazo Previsto de Retorno:"}
+                        </span>{" "}
                         <strong className="text-amber-400 font-semibold font-mono">
                           {formatarPrazoRetorno(osSelecionada.previsao_retorno)}
                         </strong>
                       </p>
-                      {isTecnico &&
-                        (osSelecionada.status === "CRIADA" ||
-                          osSelecionada.status === "EM_ASSISTENCIA") && (
+                      {(isAdmin ||
+                        (isTecnico &&
+                          (osSelecionada.status === "CRIADA" ||
+                            osSelecionada.status === "EM_ASSISTENCIA"))) && (
                           <Button
                             size="sm"
                             variant="outline"

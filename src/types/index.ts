@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type Role = "admin" | "supervisor" | "tecnico" | "solicitante";
 
+export type TipoAssistencia = "interna" | "externa";
+
 export type OSStatus =
   | "CRIADA" // Criada pelo Técnico de TI
   | "EM_ASSISTENCIA" // Check-in feito pelo Supervisor de TI (enviado à assistência)
@@ -120,6 +122,7 @@ export interface OrdemServico {
   id: string;
   numero_os: string;
   equipamento: EquipamentoResumido;
+  tipo_assistencia?: TipoAssistencia;
   descricao_defeito: string;
   prioridade?: OSPrioridade;
   justificativa_prioridade?: string;
