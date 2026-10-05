@@ -1257,12 +1257,16 @@ export const DashboardPage: React.FC = () => {
               {osSelecionada.checkin && (
                 <div className="bg-amber-500/5 p-4 rounded-xl border border-amber-500/20 space-y-2">
                   <span className="text-[10px] uppercase font-mono font-semibold text-amber-400">
-                    Check-in (Envio para Assistência)
+                    {osSelecionada.tipo_assistencia === "interna"
+                      ? "Atendimento Técnico Interno"
+                      : "Check-in (Envio para Assistência)"}
                   </span>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <span className="text-muted-foreground">
-                        Data do Check-in:
+                        {osSelecionada.tipo_assistencia === "interna"
+                          ? "Data do Atendimento:"
+                          : "Data do Check-in:"}
                       </span>{" "}
                       <strong className="text-foreground font-mono">
                         {formatarData(osSelecionada.checkin.data)}
@@ -1270,7 +1274,11 @@ export const DashboardPage: React.FC = () => {
                     </div>
                     {usuarioData?.papel !== "solicitante" && (
                       <div>
-                        <span className="text-muted-foreground">Empresa:</span>{" "}
+                        <span className="text-muted-foreground">
+                          {osSelecionada.tipo_assistencia === "interna"
+                            ? "Origem:"
+                            : "Empresa:"}
+                        </span>{" "}
                         <strong className="text-foreground">
                           {osSelecionada.checkin.empresa_externa}
                         </strong>
@@ -1300,14 +1308,20 @@ export const DashboardPage: React.FC = () => {
                     )}
                     <div>
                       <span className="text-muted-foreground">
-                        Responsável pelo Check-in:
+                        {osSelecionada.tipo_assistencia === "interna"
+                          ? "Responsável:"
+                          : "Responsável pelo Check-in:"}
                       </span>{" "}
                       {osSelecionada.checkin.supervisor_nome}
                     </div>
                   </div>
                   {osSelecionada.checkin.laudo_tecnico && (
                     <p className="text-xs text-muted-foreground mt-2 border-t border-amber-500/20 pt-2 m-0">
-                      <strong className="text-amber-400">Laudo Técnico:</strong>{" "}
+                      <strong className="text-amber-400">
+                        {osSelecionada.tipo_assistencia === "interna"
+                          ? "Serviço / Procedimento Realizado:"
+                          : "Laudo Técnico:"}
+                      </strong>{" "}
                       {osSelecionada.checkin.laudo_tecnico}
                     </p>
                   )}
@@ -1317,12 +1331,16 @@ export const DashboardPage: React.FC = () => {
               {osSelecionada.checkout && (
                 <div className="bg-purple-500/5 p-4 rounded-xl border border-purple-500/20 space-y-2">
                   <span className="text-[10px] uppercase font-mono font-semibold text-purple-400">
-                    Check-out (Retorno da Assistência)
+                    {osSelecionada.tipo_assistencia === "interna"
+                      ? "Conclusão do Atendimento Interno"
+                      : "Check-out (Retorno da Assistência)"}
                   </span>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <span className="text-muted-foreground">
-                        Data do Check-out:
+                        {osSelecionada.tipo_assistencia === "interna"
+                          ? "Data da Conclusão:"
+                          : "Data do Check-out:"}
                       </span>{" "}
                       <strong className="text-foreground font-mono">
                         {formatarData(osSelecionada.checkout.data)}
@@ -1330,7 +1348,9 @@ export const DashboardPage: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-muted-foreground">
-                        Responsável pelo Check-out:
+                        {osSelecionada.tipo_assistencia === "interna"
+                          ? "Técnico Responsável:"
+                          : "Responsável pelo Check-out:"}
                       </span>{" "}
                       <strong className="text-foreground">
                         {osSelecionada.checkout.supervisor_nome}

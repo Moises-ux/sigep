@@ -192,6 +192,117 @@ export const realizarCheckIn = async (dados: {
   });
 };
 
+export const realizarCheckInExpressoInterno = async (dados: {
+  osId: string;
+  usuarioId: string;
+  usuarioNome: string;
+  servicoRealizado: string;
+  pecasInsumos?: string;
+  destino: "RETORNADA" | "CONCLUIDA" | "EM_ASSISTENCIA";
+  observacaoAceite?: string;
+  equipamentoId?: string;
+}): Promise<void> => {
+  const docRef = doc(db, OS_COLLECTION, dados.osId);
+  const agora = new Date().toISOString();
+
+  const insumosTxt = dados.pecasInsumos?.trim()
+    ? ` (Insumos/Peças: ${dados.pecasInsumos.trim()})`
+    : "";
+
+  const checkinData: CheckInInfo = {
+    supervisor_id: dados.usuarioId,
+    supervisor_nome: dados.usuarioNome,
+    data: agora,
+    empresa_externa: "Atendimento Interno (Técnico Local)",
+    laudo_tecnico: `${dados.servicoRealizado.trim()}${insumosTxt}`,
+  };
+
+  if (dados.destino === "EM_ASSISTENCIA") {
+    const eventoHistorico: HistoricoObservacao = {
+      id: crypto.randomUUID(),
+      data: agora,
+      usuario_id: dados.usuarioId,
+      usuario_nome: dados.usuarioNome,
+      acao: "Início de Atendimento Interno",
+      observacao: `Equipamento assumido na bancada/local. Diagnóstico/Ação: "${dados.servicoRealizado.trim()}"${insumosTxt}`,
+    };
+
+    await updateDoc(docRef, {
+      status: "EM_ASSISTENCIA",
+      checkin: checkinData,
+      historico_observacoes: arrayUnion(eventoHistorico),
+      atualizado_em: serverTimestamp(),
+    });
+    return;
+  }
+
+  const checkoutData: CheckOutInfo = {
+    supervisor_id: dados.usuarioId,
+    supervisor_nome: dados.usuarioNome,
+    data: agora,
+    observacoes: `Atendimento interno concluído. Serviço: ${dados.servicoRealizado.trim()}${insumosTxt}`,
+  };
+
+  if (dados.destino === "CONCLUIDA") {
+    const aceiteData: AceiteFuncionarioInfo = {
+      funcionario_id: dados.usuarioId,
+      funcionario_nome: dados.usuarioNome,
+      data: agora,
+      observacoes:
+        dados.observacaoAceite?.trim() ||
+        "Concluído e validado in loco com o solicitante do setor.",
+    };
+
+    const eventoHistorico: HistoricoObservacao = {
+      id: crypto.randomUUID(),
+      data: agora,
+      usuario_id: dados.usuarioId,
+      usuario_nome: dados.usuarioNome,
+      acao: "Fluxo Expresso - Finalização Direta",
+      observacao: `Serviço realizado: "${dados.servicoRealizado.trim()}"${insumosTxt}. OS concluída com aceite confirmado in loco.`,
+    };
+
+    await updateDoc(docRef, {
+      status: "CONCLUIDA",
+      checkin: checkinData,
+      checkout: checkoutData,
+      aceite_funcionario: aceiteData,
+      historico_observacoes: arrayUnion(eventoHistorico),
+      atualizado_em: serverTimestamp(),
+    });
+
+    let eqId = dados.equipamentoId;
+    if (!eqId) {
+      const osSnap = await getDoc(docRef);
+      if (osSnap.exists()) {
+        eqId = osSnap.data().equipamento?.id;
+      }
+    }
+
+    if (eqId) {
+      await incrementarManutencoesConcluidas(eqId, "operacional");
+    }
+  } else {
+    // dados.destino === "RETORNADA"
+    const eventoHistorico: HistoricoObservacao = {
+      id: crypto.randomUUID(),
+      data: agora,
+      usuario_id: dados.usuarioId,
+      usuario_nome: dados.usuarioNome,
+      acao: "Fluxo Expresso - Manutenção Interna Concluída",
+      observacao: `Serviço realizado: "${dados.servicoRealizado.trim()}"${insumosTxt}. Equipamento pronto e aguardando aceite do setor.`,
+    };
+
+    await updateDoc(docRef, {
+      status: "RETORNADA",
+      checkin: checkinData,
+      checkout: checkoutData,
+      historico_observacoes: arrayUnion(eventoHistorico),
+      atualizado_em: serverTimestamp(),
+    });
+  }
+};
+
 export const realizarCheckOut = async (dados: {
   osId: string;
   supervisorId: string;
