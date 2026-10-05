@@ -1,6 +1,7 @@
 {
   "projects": {
-    "prod": "sigep-b1aec"
+    "prod": "sigep-b1aec",
+    "default": "sigep-b1aec"
   },
   "targets": {},
   "etags": {}
