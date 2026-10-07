@@ -78,8 +78,12 @@ export const getEquipamentoById = async (
 export const criarEquipamento = async (
   equipamento: Omit<Equipamento, "id" | "criado_em">
 ): Promise<string> => {
+  const dadosLimpos = Object.fromEntries(
+    Object.entries(equipamento).filter(([_, v]) => v !== undefined)
+  );
+
   const docRef = await addDoc(collection(db, EQUIPAMENTOS_COLLECTION), {
-    ...equipamento,
+    ...dadosLimpos,
     total_manutencoes_concluidas: 0,
     criado_em: serverTimestamp(),
   });
@@ -112,8 +116,11 @@ export const atualizarEquipamento = async (
   id: string,
   dados: Record<string, any>
 ): Promise<void> => {
+  const dadosLimpos = Object.fromEntries(
+    Object.entries(dados).filter(([_, v]) => v !== undefined)
+  );
   const docRef = doc(db, EQUIPAMENTOS_COLLECTION, id);
-  await updateDoc(docRef, dados);
+  await updateDoc(docRef, dadosLimpos);
 };
 
 export const excluirEquipamento = async (id: string, imagemUrl?: string): Promise<void> => {
