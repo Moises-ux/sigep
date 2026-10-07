@@ -170,7 +170,7 @@ export const EquipamentosPage: React.FC = () => {
         uploadedImageUrl = await uploadImagemEquipamento(imageFile);
       }
 
-      await criarEquipamento({
+      const novoEquipamento: Omit<Equipamento, "id" | "criado_em"> = {
         patrimonio: patrimonio.trim(),
         tipo,
         marca: marca.trim(),
@@ -180,10 +180,18 @@ export const EquipamentosPage: React.FC = () => {
         data_alocacao: new Date(),
         status: "operacional",
         observacoes: observacoes.trim(),
-        cadastrado_por_id: usuarioData?.id,
         cadastrado_por_nome: usuarioData?.nome || "Sistema",
-        imagem_url: uploadedImageUrl || undefined,
-      });
+      };
+
+      if (usuarioData?.id) {
+        novoEquipamento.cadastrado_por_id = usuarioData.id;
+      }
+
+      if (uploadedImageUrl) {
+        novoEquipamento.imagem_url = uploadedImageUrl;
+      }
+
+      await criarEquipamento(novoEquipamento);
 
       setPatrimonio("");
       setMarca("");
@@ -1103,14 +1111,21 @@ export const EquipamentosPage: React.FC = () => {
               <div className="p-3 bg-red-500/10 rounded-full">
                 <AlertTriangle className="w-8 h-8 text-red-400" />
               </div>
-              <h3 className="text-base font-semibold text-white">
-                Excluir Equipamento
+              <h3 className="text-base font-semibold text-white break-words">
+                {deleteTarget.tipo ? `${deleteTarget.tipo} - ` : ""}{deleteTarget.marca} {deleteTarget.modelo}
               </h3>
               <p className="text-sm text-slate-400">
-                Tem certeza que deseja excluir o equipamento{" "}
-                <span className="font-bold text-white">
-                  {deleteTarget.patrimonio}
-                </span>
+                Tem certeza que deseja excluir este equipamento
+                {deleteTarget.patrimonio && (
+                  <>
+                    {" "}
+                    (Patrimônio:{" "}
+                    <span className="font-bold text-white">
+                      {deleteTarget.patrimonio}
+                    </span>
+                    )
+                  </>
+                )}
                 ? Esta ação não pode ser desfeita.
               </p>
             </div>
