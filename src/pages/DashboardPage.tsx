@@ -70,6 +70,112 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+const STATUS_ORDEM: Record<string, number> = {
+  CRIADA: 1,
+  EM_ASSISTENCIA: 2,
+  RETORNADA: 3,
+  CONCLUIDA: 4,
+  CANCELADA: 5,
+  ARQUIVADA: 6,
+};
+
+const PRIORIDADE_ORDEM: Record<string, number> = {
+  baixa: 1,
+  media: 2,
+  alta: 3,
+  critica: 4,
+};
+
+const getDateKey = (val: any): string => {
+  if (!val) return "";
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+    return val.substring(0, 10);
+  }
+  let d: Date | null = null;
+  if (typeof val?.toDate === "function") {
+    d = val.toDate();
+  } else if (typeof val?.seconds === "number") {
+    d = new Date(val.seconds * 1000);
+  } else if (val instanceof Date) {
+    d = val;
+  } else if (typeof val === "string" || typeof val === "number") {
+    d = new Date(val);
+  }
+  if (!d || isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getTimestamp = (val: any): number => {
+  if (!val) return 0;
+  if (typeof val?.toDate === "function") {
+    return val.toDate().getTime();
+  }
+  if (typeof val?.seconds === "number") {
+    return (
+      val.seconds * 1000 +
+      (val.nanoseconds ? Math.floor(val.nanoseconds / 1000000) : 0)
+    );
+  }
+  if (val instanceof Date) {
+    return val.getTime();
+  }
+  if (typeof val === "string" || typeof val === "number") {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+  return 0;
+};
+
+const compararOrdensServico = (a: OrdemServico, b: OrdemServico): number => {
+  // 1. Data (DESC - cronológica decrescente por data: mais recente primeiro)
+  const dataValA = (a as any).data ?? a.criado_em;
+  const dataValB = (b as any).data ?? b.criado_em;
+
+  const dateA = getDateKey(dataValA);
+  const dateB = getDateKey(dataValB);
+
+  if (dateA !== dateB) {
+    if (!dateA) return 1;
+    if (!dateB) return -1;
+    return dateB.localeCompare(dateA);
+  }
+
+  // 2. Status (DESC - ciclo de vida decrescente da OS)
+  const statusA = (a.status || "").toUpperCase();
+  const statusB = (b.status || "").toUpperCase();
+  const orderStatusA = STATUS_ORDEM[statusA] ?? 99;
+  const orderStatusB = STATUS_ORDEM[statusB] ?? 99;
+
+  if (orderStatusA !== orderStatusB) {
+    return orderStatusB - orderStatusA;
+  }
+
+  // 3. Prioridade (DESC - da maior para a menor prioridade: critica -> alta -> media -> baixa)
+  const prioA = (a.prioridade || "baixa").toLowerCase();
+  const prioB = (b.prioridade || "baixa").toLowerCase();
+  const orderPrioA = PRIORIDADE_ORDEM[prioA] ?? 99;
+  const orderPrioB = PRIORIDADE_ORDEM[prioB] ?? 99;
+
+  if (orderPrioA !== orderPrioB) {
+    return orderPrioB - orderPrioA;
+  }
+
+  // Desempate por timestamp exato (DESC - mais recente primeiro)
+  const timeA = getTimestamp(dataValA);
+  const timeB = getTimestamp(dataValB);
+  if (timeA !== timeB) {
+    if (!timeA) return 1;
+    if (!timeB) return -1;
+    return timeB - timeA;
+  }
+
+  // Desempate estável final por protocolo OS (DESC)
+  return (b.numero_os || "").localeCompare(a.numero_os || "");
+};
+
 export const DashboardPage: React.FC = () => {
   const { usuarioData } = useAuth();
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
@@ -79,6 +185,8 @@ export const DashboardPage: React.FC = () => {
   const [statusFiltro, setStatusFiltro] = useState<string>("TODOS");
   const [setorFiltro, setSetorFiltro] = useState<string>("TODOS");
   const [prioridadeFiltro, setPrioridadeFiltro] = useState<string>("TODOS");
+  const [tipoAssistenciaFiltro, setTipoAssistenciaFiltro] =
+    useState<string>("TODOS");
   const [searchTerm, setSearchTerm] = useState("");
 
   const [osSelecionada, setOsSelecionada] = useState<OrdemServico | null>(null);
@@ -420,30 +528,55 @@ export const DashboardPage: React.FC = () => {
   ).length;
   const arquivadasOSCount = ordensArquivadas.length;
 
-  const ordensFiltradas = ordensPorSetor.filter((o) => {
+  const baseOrdensTipo = ordensPorSetor.filter((o) => {
     if (statusFiltro === "ARQUIVADA") {
-      if (!o.deletado && o.status !== "ARQUIVADA") return false;
-    } else {
-      if (o.deletado || o.status === "ARQUIVADA") return false;
-      if (statusFiltro !== "TODOS" && o.status !== statusFiltro) return false;
+      return o.deletado || o.status === "ARQUIVADA";
     }
-
-    const atendePrioridade =
-      prioridadeFiltro === "TODOS" ||
-      (o.prioridade || "baixa") === prioridadeFiltro;
-    const atendeBusca =
-      o.numero_os.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.descricao_defeito.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (o.equipamento.patrimonio || "")
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase());
-    return atendePrioridade && atendeBusca;
+    if (o.deletado || o.status === "ARQUIVADA") return false;
+    return statusFiltro === "TODOS" || o.status === statusFiltro;
   });
+
+  const totalAssistencias = baseOrdensTipo.length;
+  const internaOS = baseOrdensTipo.filter(
+    (o) => (o.tipo_assistencia || "interna") === "interna"
+  ).length;
+  const externaOS = baseOrdensTipo.filter(
+    (o) => o.tipo_assistencia === "externa"
+  ).length;
+
+  const ordensFiltradas = ordensPorSetor
+    .filter((o) => {
+      if (statusFiltro === "ARQUIVADA") {
+        if (!o.deletado && o.status !== "ARQUIVADA") return false;
+      } else {
+        if (o.deletado || o.status === "ARQUIVADA") return false;
+        if (statusFiltro !== "TODOS" && o.status !== statusFiltro) return false;
+      }
+
+      const atendePrioridade =
+        prioridadeFiltro === "TODOS" ||
+        (o.prioridade || "baixa") === prioridadeFiltro;
+
+      const atendeTipoAssistencia =
+        tipoAssistenciaFiltro === "TODOS" ||
+        (o.tipo_assistencia || "interna") === tipoAssistenciaFiltro;
+
+      const atendeBusca =
+        o.numero_os.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.descricao_defeito.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (o.equipamento.patrimonio || "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase());
+
+      return atendePrioridade && atendeTipoAssistencia && atendeBusca;
+    })
+    .sort(compararOrdensServico);
 
   const limparFiltros = () => {
     setStatusFiltro("TODOS");
     setSetorFiltro("TODOS");
     setPrioridadeFiltro("TODOS");
+    setTipoAssistenciaFiltro("TODOS");
     setSearchTerm("");
   };
 
@@ -645,40 +778,96 @@ export const DashboardPage: React.FC = () => {
       {/* Tabela/Lista de Ordens de Serviço usando Shadcn Table e Card */}
       {loading ? (
         <SkeletonTable />
-      ) : ordensFiltradas.length === 0 ? (
-        <Card className="p-12 text-center flex flex-col items-center justify-center space-y-4">
-          <div className="w-14 h-14 bg-muted border border-border rounded-2xl flex items-center justify-center text-muted-foreground shadow-inner">
-            <Inbox className="w-7 h-7" />
-          </div>
-          <div>
-            <h3 className="text-base font-semibold text-foreground m-0">
-              Nenhuma Ordem de Serviço Encontrada
-            </h3>
-            <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-              Não há registros com os filtros aplicados. Altere o termo de
-              pesquisa ou selecione outro setor / status.
-            </p>
-          </div>
-          {(statusFiltro !== "TODOS" ||
-            setorFiltro !== "TODOS" ||
-            searchTerm !== "") && (
-            <Button variant="link" size="sm" onClick={limparFiltros}>
-              Limpar Filtros
-            </Button>
-          )}
-        </Card>
       ) : (
         <Card>
           <CardHeader className="px-6 py-4 border-b border-border">
-            <CardTitle className="text-base font-bold">
-              Listagem de OS
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Exibindo {ordensFiltradas.length} ordens de serviço
-            </CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base font-bold">
+                  Listagem de OS
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Exibindo {ordensFiltradas.length} ordens de serviço
+                </CardDescription>
+              </div>
+
+              {/* Filtros por Tipo de Assistência no mesmo modelo de filtros de status ('todas', 'criadas', 'em reparo') */}
+              <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                {[
+                  {
+                    id: "TODOS",
+                    label: "Todas as Assistências",
+                    count: totalAssistencias,
+                  },
+                  {
+                    id: "interna",
+                    label: "Assistência Interna",
+                    count: internaOS,
+                  },
+                  {
+                    id: "externa",
+                    label: "Assistência Externa",
+                    count: externaOS,
+                  },
+                ].map((tipo) => (
+                  <Button
+                    key={tipo.id}
+                    variant={
+                      tipoAssistenciaFiltro === tipo.id ? "default" : "outline"
+                    }
+                    size="sm"
+                    onClick={() =>
+                      setTipoAssistenciaFiltro((prev) =>
+                        prev === tipo.id && tipo.id !== "TODOS"
+                          ? "TODOS"
+                          : tipo.id
+                      )
+                    }
+                    className="gap-1.5 text-xs h-8 shrink-0"
+                  >
+                    <span>{tipo.label}</span>
+                    <Badge
+                      variant={
+                        tipoAssistenciaFiltro === tipo.id
+                          ? "secondary"
+                          : "outline"
+                      }
+                      className="px-1.5 py-0 text-[10px] font-mono"
+                    >
+                      {tipo.count}
+                    </Badge>
+                  </Button>
+                ))}
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
+            {ordensFiltradas.length === 0 ? (
+              <div className="p-12 text-center flex flex-col items-center justify-center space-y-4">
+                <div className="w-14 h-14 bg-muted border border-border rounded-2xl flex items-center justify-center text-muted-foreground shadow-inner">
+                  <Inbox className="w-7 h-7" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-foreground m-0">
+                    Nenhuma Ordem de Serviço Encontrada
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                    Não há registros com os filtros aplicados. Altere o termo de
+                    pesquisa ou selecione outro setor / status / tipo de assistência.
+                  </p>
+                </div>
+                {(statusFiltro !== "TODOS" ||
+                  setorFiltro !== "TODOS" ||
+                  prioridadeFiltro !== "TODOS" ||
+                  tipoAssistenciaFiltro !== "TODOS" ||
+                  searchTerm !== "") && (
+                  <Button variant="link" size="sm" onClick={limparFiltros}>
+                    Limpar Filtros
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[120px]">Protocolo</TableHead>
@@ -886,7 +1075,8 @@ export const DashboardPage: React.FC = () => {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            )}
           </CardContent>
         </Card>
       )}
