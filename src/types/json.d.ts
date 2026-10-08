@@ -1,9 +1,10 @@
-declare module '*.json' {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+declare module "*.json" {
   const value: any;
   export default value;
 }
 
-declare module '*/serviceAccountKey.json' {
+declare module "*/serviceAccountKey.json" {
   const value: {
     type?: string;
     project_id?: string;

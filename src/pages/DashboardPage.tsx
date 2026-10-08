@@ -143,14 +143,14 @@ const compararOrdensServico = (a: OrdemServico, b: OrdemServico): number => {
     return dateB.localeCompare(dateA);
   }
 
-  // 2. Status (DESC - ciclo de vida decrescente da OS)
+  // 2. Status (Ordem: criada -> em assistencia -> retornada -> concluida -> cancelada)
   const statusA = (a.status || "").toUpperCase();
   const statusB = (b.status || "").toUpperCase();
   const orderStatusA = STATUS_ORDEM[statusA] ?? 99;
   const orderStatusB = STATUS_ORDEM[statusB] ?? 99;
 
   if (orderStatusA !== orderStatusB) {
-    return orderStatusB - orderStatusA;
+    return orderStatusA - orderStatusB;
   }
 
   // 3. Prioridade (DESC - da maior para a menor prioridade: critica -> alta -> media -> baixa)
@@ -781,8 +781,8 @@ export const DashboardPage: React.FC = () => {
       ) : (
         <Card>
           <CardHeader className="px-6 py-4 border-b border-border">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-0">
+              <div className="shrink-0">
                 <CardTitle className="text-base font-bold">
                   Listagem de OS
                 </CardTitle>
@@ -791,53 +791,55 @@ export const DashboardPage: React.FC = () => {
                 </CardDescription>
               </div>
 
-              {/* Filtros por Tipo de Assistência no mesmo modelo de filtros de status ('todas', 'criadas', 'em reparo') */}
-              <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-                {[
-                  {
-                    id: "TODOS",
-                    label: "Todas as Assistências",
-                    count: totalAssistencias,
-                  },
-                  {
-                    id: "interna",
-                    label: "Assistência Interna",
-                    count: internaOS,
-                  },
-                  {
-                    id: "externa",
-                    label: "Assistência Externa",
-                    count: externaOS,
-                  },
-                ].map((tipo) => (
-                  <Button
-                    key={tipo.id}
-                    variant={
-                      tipoAssistenciaFiltro === tipo.id ? "default" : "outline"
-                    }
-                    size="sm"
-                    onClick={() =>
-                      setTipoAssistenciaFiltro((prev) =>
-                        prev === tipo.id && tipo.id !== "TODOS"
-                          ? "TODOS"
-                          : tipo.id
-                      )
-                    }
-                    className="gap-1.5 text-xs h-8 shrink-0"
-                  >
-                    <span>{tipo.label}</span>
-                    <Badge
+              {/* Filtros por Tipo de Assistência com scroll horizontal */}
+              <div className="overflow-x-auto max-w-full min-w-0 pb-1.5 pt-0.5 sm:pb-1">
+                <div className="flex items-center gap-1.5 w-max">
+                  {[
+                    {
+                      id: "TODOS",
+                      label: "Todas as Assistências",
+                      count: totalAssistencias,
+                    },
+                    {
+                      id: "interna",
+                      label: "Assistência Interna",
+                      count: internaOS,
+                    },
+                    {
+                      id: "externa",
+                      label: "Assistência Externa",
+                      count: externaOS,
+                    },
+                  ].map((tipo) => (
+                    <Button
+                      key={tipo.id}
                       variant={
-                        tipoAssistenciaFiltro === tipo.id
-                          ? "secondary"
-                          : "outline"
+                        tipoAssistenciaFiltro === tipo.id ? "default" : "outline"
                       }
-                      className="px-1.5 py-0 text-[10px] font-mono"
+                      size="sm"
+                      onClick={() =>
+                        setTipoAssistenciaFiltro((prev) =>
+                          prev === tipo.id && tipo.id !== "TODOS"
+                            ? "TODOS"
+                            : tipo.id
+                        )
+                      }
+                      className="gap-1.5 text-xs h-8 shrink-0 cursor-pointer"
                     >
-                      {tipo.count}
-                    </Badge>
-                  </Button>
-                ))}
+                      <span>{tipo.label}</span>
+                      <Badge
+                        variant={
+                          tipoAssistenciaFiltro === tipo.id
+                            ? "secondary"
+                            : "outline"
+                        }
+                        className="px-1.5 py-0 text-[10px] font-mono"
+                      >
+                        {tipo.count}
+                      </Badge>
+                    </Button>
+                  ))}
+                </div>
               </div>
             </div>
           </CardHeader>
